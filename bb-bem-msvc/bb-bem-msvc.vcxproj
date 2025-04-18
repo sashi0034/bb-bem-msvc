@@ -127,12 +127,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="bb_bem.c" />
+    <ClCompile Include="bb_bem_impl.c" />
     <ClCompile Include="user_func.c" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="input.txt" />
     <Content Include="memo.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="bb_bem.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

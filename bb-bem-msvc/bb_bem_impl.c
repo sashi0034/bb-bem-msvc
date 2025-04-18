@@ -6,11 +6,8 @@
 #include <stdlib.h>
 #include <math.h>
 
-struct coordinate {
-    double x, y, z;
-};
+#include "bb_bem.h"
 
-double element_ij_(int* i, int* j, int* nond, int* nofc, struct coordinate* np, int* face2node);
 void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int max_steps);
 
 int main() {
@@ -31,7 +28,7 @@ int main() {
     double *rhs, *sol, tor;
     int dim, max_steps;
 
-    struct coordinate* np;
+    vector3_t* np;
 
     fp = fopen("input.txt", "r");
 
@@ -39,7 +36,7 @@ int main() {
     fscanf(fp, "%d", &nond);
 
     // Allocation for the array for the coordinates of the nodes 
-    np = (struct coordinate*)malloc(sizeof(struct coordinate) * nond);
+    np = (vector3_t*)malloc(sizeof(vector3_t) * nond);
 
     // Read the coordinates of the nodes from input data file : np  
     for (i = 0; i < nond; i++) {
@@ -156,7 +153,7 @@ int main() {
     */
 
     // User Specified Function 
-    // element_integral(struct coordinate np, double **a, ); 
+    // element_integral(coordinate np, double **a, ); 
 
     for (i = 0; i < dim; i++) {
         for (j = 0; j < dim; j++) {

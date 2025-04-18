@@ -1,13 +1,10 @@
 ﻿#include <math.h>
 
+#include "bb_bem.h"
+
 // Constants from Fortran 
 #define PI            3.141592653589793
 #define EPSILON_0     (8.854187818e-12)
-
-// Coordinate struct matching the one in your driver 
-struct coordinate {
-    double x, y, z;
-};
 
 // 3D cross product: w = u × v 
 static void cross_product(const double u[3], const double v[3], double w[3]) {
@@ -107,12 +104,12 @@ static double face_integral(const double xs[3],
 /*
  * C-callable wrapper matching the Fortran interface:
  *   double element_ij_(int* i, int* j, int* nond, int* nofc,
- *                      struct coordinate* np, int* face2node);
+ *                      coordinate* np, int* face2node);
  *
  * Here we assume each face is a triangle (3 nodes per face).
  */
 double element_ij_(int* pi, int* pj, int* pnond, int* pnofc,
-                   struct coordinate* np, int* face2node_flat) {
+                   vector3_t* np, int* face2node_flat) {
     int fi = *pi;
     int fj = *pj;
 
