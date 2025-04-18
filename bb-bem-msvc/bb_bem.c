@@ -35,34 +35,34 @@ int main() {
 
     fp = fopen("input.txt", "r");
 
-    /* Read number of nodes from input data file : nond  */
+    // Read number of nodes from input data file : nond  
     fscanf(fp, "%d", &nond);
 
-    /* Allocation for the array for the coordinates of the nodes */
+    // Allocation for the array for the coordinates of the nodes 
     np = (struct coordinate*)malloc(sizeof(struct coordinate) * nond);
 
-    /* Read the coordinates of the nodes from input data file : np  */
+    // Read the coordinates of the nodes from input data file : np  
     for (i = 0; i < nond; i++) {
         fscanf(fp, "%lf %lf %lf", &(np[i].x), &(np[i].y), &(np[i].z));
     }
 
-    /* printf("%lf %lf %lf\n",np[1].x,np[1].y,np[1].z); */
+    // printf("%lf %lf %lf\n",np[1].x,np[1].y,np[1].z); 
 
-    /* Read number of faces from input data file : nofc  */
+    // Read number of faces from input data file : nofc  
     fscanf(fp, "%d", &nofc);
 
-    /* Read number of nodes on each face from input data file : nond_on_face  */
+    // Read number of nodes on each face from input data file : nond_on_face  
     fscanf(fp, "%d", &nond_on_face);
 
-    /* Read number of integer parameters set on each face from input data file : nint_para_fc  */
+    // Read number of integer parameters set on each face from input data file : nint_para_fc  
     fscanf(fp, "%d", &nint_para_fc);
 
-    /* Read number of real(double precision) parameters set on each face from input data file : ndble_para_fc  */
+    // Read number of real(double precision) parameters set on each face from input data file : ndble_para_fc  
     fscanf(fp, "%d", &ndble_para_fc);
 
     printf("Number of nodes=%d Number of faces=%d\n", nond, nofc);
 
-    /**************************************/
+    // -----------------------------------------------
 
     face2node = (int**)malloc(sizeof(int*) * nofc);
     face2node[0] = (int*)malloc(sizeof(int) * nofc * nond_on_face);
@@ -131,7 +131,7 @@ int main() {
     sol = (double*)malloc(sizeof(double) * dim);
 
     for (i = 0; i < dim; i++) {
-        /*   rhs[i]=1.0; */
+        //   rhs[i]=1.0; 
         sol[i] = 0.0;
         /*   a[i][i]=2.0;
         if (i-1>=0) {a[i][i-1]=-1.0;}
@@ -155,8 +155,8 @@ int main() {
     fclose(testrhs);
     */
 
-    /* User Specified Function */
-    /* element_integral(struct coordinate np, double **a, ); */
+    // User Specified Function 
+    // element_integral(struct coordinate np, double **a, ); 
 
     for (i = 0; i < dim; i++) {
         for (j = 0; j < dim; j++) {
@@ -167,7 +167,7 @@ int main() {
 
     //testrhs = fopen("rhs.txt","r");
     for (i = 0; i < dim; i++) {
-        /*     fscanf(fp, "%lf", &(rhs[i])); */
+        //     fscanf(fp, "%lf", &(rhs[i])); 
         rhs[i] = dble_para_fc[i][0];
     }
 
@@ -181,7 +181,7 @@ int main() {
     for (i = 0; i < dim; i++)
         fprintf(fp, "%20.14e \n", sol[i]);
 
-    /* printf("%d,%d\n",nint_para_fc,ndble_para_fc); */
+    // printf("%d,%d\n",nint_para_fc,ndble_para_fc); 
     free(np);
     free(face2node[0]);
     free(face2node);
@@ -201,7 +201,7 @@ int main() {
     free(sol);
 }
 
-/* Matrix vector multiplication with a dense matrix: q=Ap */
+// Matrix vector multiplication with a dense matrix: q=Ap 
 void matvec_direct(int dim, double** mat, double* p, double* q) {
     int row, col;
 
@@ -216,10 +216,10 @@ void matvec_direct(int dim, double** mat, double* p, double* q) {
     }
 }
 
-/****************************************************/
+// -----------------------------------------------
 
-/****************************************************/
-/* Calculation of residual matrix with a dense matrix: r=b-Ax */
+// -----------------------------------------------
+// Calculation of residual matrix with a dense matrix: r=b-Ax 
 void residual_direct(int dim, double** mat, double* x, double* b, double* r) {
     int row, col;
 
@@ -234,10 +234,10 @@ void residual_direct(int dim, double** mat, double* x, double* b, double* r) {
     }
 }
 
-/****************************************************/
+// -----------------------------------------------
 
-/****************************************************/
-/* Calculation of dot product */
+// -----------------------------------------------
+// Calculation of dot product 
 double dot_product(int dim, double* x, double* y) {
     double sum = 0;
     int i;
@@ -249,13 +249,13 @@ double dot_product(int dim, double* x, double* y) {
     return sum;
 }
 
-/**************************************************/
+// -----------------------------------------------
 void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int max_steps) {
     int step, i;
     double *r, *shdw, *p, *t, *ap, *kp, *akp, *kt, *akt;
     double alpha, beta, zeta, nom, den, nomold, rnorm, bnorm;
 
-    /* Allocation of arraies */
+    // Allocation of arraies 
     r = (double*)malloc(sizeof(double) * dim);
     shdw = (double*)malloc(sizeof(double) * dim);
     p = (double*)malloc(sizeof(double) * dim);
@@ -266,7 +266,7 @@ void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int 
     kt = (double*)malloc(sizeof(double) * dim);
     akt = (double*)malloc(sizeof(double) * dim);
 
-    /* Initialization*/
+    // Initialization
     for (i = 0; i < dim; i++) { p[i] = 0.0; }
     alpha = 0.0;
     beta = 0.0;
@@ -274,10 +274,10 @@ void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int 
 
     bnorm = sqrt(dot_product(dim, rhs, rhs));
 
-    /* Initial residual   */
+    // Initial residual   
     residual_direct(dim, mat, sol, rhs, r);
 
-    /* Set shadow vector */
+    // Set shadow vector 
     for (i = 0; i < dim; i++) { shdw[i] = r[i]; }
 
     rnorm = sqrt(dot_product(dim, r, r));
@@ -285,13 +285,13 @@ void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int 
 
     if (rnorm / bnorm < tor) { return; }
 
-    /* BiCGSTAB iteration */
+    // BiCGSTAB iteration 
     for (step = 1; step <= max_steps; step++) {
         matvec_direct(dim, mat, p, ap);
 
         for (i = 0; i < dim; i++) { p[i] = r[i] + beta * (p[i] - zeta * ap[i]); }
 
-        /* No preconditioning */
+        // No preconditioning 
         for (i = 0; i < dim; i++) { kp[i] = p[i]; }
 
         matvec_direct(dim, mat, kp, akp);
@@ -301,11 +301,11 @@ void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int 
         alpha = nom / den;
         nomold = nom;
 
-        /* printf("alpha= %lf",alpha); */
+        // printf("alpha= %lf",alpha); 
 
         for (i = 0; i < dim; i++) { t[i] = r[i] - alpha * akp[i]; }
 
-        /* No preconditioning */
+        // No preconditioning 
         for (i = 0; i < dim; i++) { kt[i] = t[i]; }
 
         matvec_direct(dim, mat, kt, akt);
@@ -323,9 +323,9 @@ void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int 
 
         if (rnorm / bnorm < tor) { break; }
     }
-    /*********************************
-  
-  /* Confirmation of residual */
+    // -----------------------------------------------
+
+    // Confirmation of residual 
 
     residual_direct(dim, mat, sol, rhs, r);
     rnorm = sqrt(dot_product(dim, r, r));
