@@ -1,8 +1,7 @@
 ﻿#include "stdio.h"
 
-int main()
-{
-	printf("Hello World!\n");
+int main() {
+    printf("Hello World!\n");
 }
 
 // プログラムの実行: Ctrl + F5 または [デバッグ] > [デバッグなしで開始] メニュー
