@@ -1,3 +1,6 @@
-﻿/dll
-/example
-/engine/shader/glsl
+﻿AS_DEBUG
+dll
+example
+engine/shader/glsl
+*.exe
+
