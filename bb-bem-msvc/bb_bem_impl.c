@@ -10,6 +10,7 @@
 
 static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int max_steps);
 
+#if !defined(BB_NO_MAIN)
 int main() {
     bb_result_t result;
     bb_bem("input.txt", &result);
@@ -29,10 +30,11 @@ int main() {
 
     return 0;
 }
+#endif
 
 #define NUMBER_ELEMENT_DOF  1;
 
-bb_status_t bb_bem(char* filename, bb_result_t* result) {
+bb_status_t bb_bem(const char* filename, bb_result_t* result) {
     bb_input_t* input = &result->input;
     *input = (bb_input_t){0}; // Initialize input structure
 

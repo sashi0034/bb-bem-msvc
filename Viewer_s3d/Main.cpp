@@ -1,5 +1,8 @@
 ﻿# include <Siv3D.hpp>
 
+#include "LivePPAddon.h"
+#include "../bb-bem-msvc/bb_bem.h"
+
 namespace
 {
 	RenderTexture getPlaneTexture() {
@@ -34,11 +37,21 @@ struct Viewer_3sd : IAddon {
 	// 前後移動: [W][S], 左右移動: [A][D], 上下移動: [E][X], 注視点移動: アローキー, 加速: [Shift][Ctrl]
 	DebugCamera3D m_camera{m_renderTexture.size(), 30_deg, Vec3{10, 16, -32}};
 
+	bb_result_t m_bb_result{};
+
 	bool init() override {
 		// ウインドウとシーンを 1280x720 にリサイズ
 		Window::Resize(1280, 720);
 
+		if (bb_bem("../../bb-bem-msvc/input.txt", &m_bb_result) != BB_SUCCESS) {
+			std::cerr << "Error: Cannot open file input.txt" << std::endl;
+		}
+
 		return true;
+	}
+
+	~Viewer_3sd() override {
+		release_bb_result(&m_bb_result);
 	}
 
 	bool update() override {
@@ -84,6 +97,8 @@ struct Viewer_3sd : IAddon {
 };
 
 void Main() {
+	Util::InitLivePPAddon();
+
 	Addon::Register<Viewer_3sd>(U"Viewer_3sd");
 
 	while (System::Update()) {

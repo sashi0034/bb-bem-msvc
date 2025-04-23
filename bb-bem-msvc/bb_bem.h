@@ -6,6 +6,10 @@
 
 #define BB_API
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct vector3_t {
     double x, y, z;
 } vector3_t;
@@ -83,8 +87,12 @@ typedef enum {
 } bb_status_t;
 
 /// @brief BEM の計算を実行する関数
-BB_API bb_status_t bb_bem(char* filename, bb_result_t* result);
+BB_API bb_status_t bb_bem(const char* filename, bb_result_t* result);
 
 BB_API void release_bb_result(bb_result_t* result);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
