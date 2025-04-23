@@ -47,6 +47,8 @@ struct Viewer_3sd : IAddon {
 
 	Array<SphereData> m_sphereList{};
 
+	int m_currentBatch{};
+
 	bool init() override {
 		Window::SetTitle(U"Viewer_3sd");
 
@@ -54,28 +56,7 @@ struct Viewer_3sd : IAddon {
 		Window::Resize(1280, 720);
 
 		if (bb_bem("../../bb-bem-msvc/input.txt", &m_bb_result) == BB_SUCCESS) {
-			const auto& bb_input = m_bb_result.input;
-			for (int fc_id = 0; fc_id < bb_input.nofc; ++fc_id) {
-				// 各要素の重心を計算
-				Vec3 centroid{0.0, 0.0, 0.0};
-				for (int nd_id = 0; nd_id < m_bb_result.input.nond_on_face; nd_id++) {
-					centroid += Vec3{
-						bb_input.np[bb_input.face2node[fc_id][nd_id]].x,
-						bb_input.np[bb_input.face2node[fc_id][nd_id]].y,
-						bb_input.np[bb_input.face2node[fc_id][nd_id]].z
-					};
-				}
-
-				centroid /= m_bb_result.input.nond_on_face;
-
-				const double sol = m_bb_result.sol[10][fc_id]; // TODO: インデックスの変更対応
-
-				m_sphereList.push_back({
-					.center = centroid * 10,
-					.radius = Math::Abs(sol) * 0.5e10,
-					.color = sol < 0 ? Palette::Orange.removeSRGBCurve() : Palette::Lightskyblue.removeSRGBCurve()
-				});
-			}
+			makeSphereList();
 		}
 		else {
 			std::cerr << "Error: Cannot open file input.txt" << std::endl;
@@ -120,7 +101,39 @@ struct Viewer_3sd : IAddon {
 			Shader::LinearToScreen(m_renderTexture);
 		}
 
+		if (SimpleGUI::Button(U"Batch {}"_fmt(m_currentBatch), Vec2{20, 20})) {
+			m_currentBatch = (m_currentBatch + 1) % m_bb_result.input.para_batch;
+			makeSphereList();
+		}
+
 		return true;
+	}
+
+private:
+	void makeSphereList() {
+		m_sphereList.clear();
+		const auto& bb_input = m_bb_result.input;
+		for (int fc_id = 0; fc_id < bb_input.nofc; ++fc_id) {
+			// 各要素の重心を計算
+			Vec3 centroid{0.0, 0.0, 0.0};
+			for (int nd_id = 0; nd_id < m_bb_result.input.nond_on_face; nd_id++) {
+				centroid += Vec3{
+					bb_input.np[bb_input.face2node[fc_id][nd_id]].x,
+					bb_input.np[bb_input.face2node[fc_id][nd_id]].y,
+					bb_input.np[bb_input.face2node[fc_id][nd_id]].z
+				};
+			}
+
+			centroid /= m_bb_result.input.nond_on_face;
+
+			const double sol = m_bb_result.sol[m_currentBatch][fc_id]; // TODO: インデックスの変更対応
+
+			m_sphereList.push_back({
+				.center = centroid * 10,
+				.radius = Math::Abs(sol) * 0.5e10,
+				.color = sol > 0 ? Palette::Orange.removeSRGBCurve() : Palette::Lightskyblue.removeSRGBCurve()
+			});
+		}
 	}
 };
 

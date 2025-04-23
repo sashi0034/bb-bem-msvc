@@ -62,11 +62,11 @@ typedef struct bb_input_t {
     /// @brief 各要素を構成する節点番号 (サイズ: nofc * nond_on_face)
     int** face2node;
 
-    /// @brief 各要素の int パラメータ (サイズ: nofc * nint_para_fc)
-    int** int_para_fc;
+    /// @brief 各要素の int パラメータ (サイズ: para_batch * nofc * nint_para_fc)
+    int*** int_para_fc;
 
-    /// @brief 各要素の double パラメータ (サイズ: nofc * ndble_para_fc)
-    double** dble_para_fc;
+    /// @brief 各要素の double パラメータ (サイズ: para_batch * nofc * ndble_para_fc)
+    double*** dble_para_fc;
 } bb_input_t;
 
 /// @brief BEM の計算結果を格納する構造体

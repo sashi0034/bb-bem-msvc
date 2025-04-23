@@ -98,7 +98,8 @@ static bb_status_t read_input_from_file(const char* filename, bb_input_t* input)
     // Read the number of real(double precision) parameters set on each face from an input data file: ndble_para_fc  
     if (fscanf(fp, "%d", &input->ndble_para_fc) != 1) goto fail;
 
-    input->para_batch = 100; // TODO
+    // Read the number of parameters set on each face from an input data file: para_batch
+    if (fscanf(fp, "%d", &input->para_batch) != 1) goto fail;
 
     printf("Number of nodes=%d Number of faces=%d\n", input->nond, input->nofc);
 
@@ -116,24 +117,30 @@ static bb_status_t read_input_from_file(const char* filename, bb_input_t* input)
 
     // int_para_fc
     if (input->nint_para_fc > 0) {
-        input->int_para_fc = (int**)allocate_matrix(input->nofc, input->nint_para_fc, sizeof(int));
-        if (!input->int_para_fc) goto bad_alloc;
+        input->int_para_fc = (int***)malloc(sizeof(int**) * input->para_batch);
+        for (int n = 0; n < input->para_batch; n++) {
+            input->int_para_fc[n] = (int**)allocate_matrix(input->nofc, input->nint_para_fc, sizeof(int));
+            if (!input->int_para_fc[n]) goto bad_alloc;
 
-        for (int i = 0; i < input->nofc; i++) {
-            for (int j = 0; j < input->nint_para_fc; j++) {
-                if (fscanf(fp, "%d", &input->int_para_fc[i][j]) != 1) goto fail;
+            for (int i = 0; i < input->nofc; i++) {
+                for (int j = 0; j < input->nint_para_fc; j++) {
+                    if (fscanf(fp, "%d", &input->int_para_fc[n][i][j]) != 1) goto fail;
+                }
             }
         }
     }
 
     // dble_para_fc
     if (input->ndble_para_fc > 0) {
-        input->dble_para_fc = (double**)allocate_matrix(input->nofc, input->ndble_para_fc, sizeof(double));
-        if (!input->dble_para_fc) goto bad_alloc;
+        input->dble_para_fc = (double***)malloc(sizeof(double**) * input->para_batch);
+        for (int n = 0; n < input->para_batch; n++) {
+            input->dble_para_fc[n] = (double**)allocate_matrix(input->nofc, input->ndble_para_fc, sizeof(double));
+            if (!input->dble_para_fc[n]) goto bad_alloc;
 
-        for (int i = 0; i < input->nofc; i++) {
-            for (int j = 0; j < input->ndble_para_fc; j++) {
-                if (fscanf(fp, "%lf", &input->dble_para_fc[i][j]) != 1) goto fail;
+            for (int i = 0; i < input->nofc; i++) {
+                for (int j = 0; j < input->ndble_para_fc; j++) {
+                    if (fscanf(fp, "%lf", &input->dble_para_fc[n][i][j]) != 1) goto fail;
+                }
             }
         }
     }
@@ -194,7 +201,7 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
     for (int n = 0; n < input->para_batch; n++) {
         for (int i = 0; i < result->dim; i++) {
-            rhs[n][i] = input->dble_para_fc[i][0]; // TODO
+            rhs[n][i] = input->dble_para_fc[n][i][0]; // TODO
         }
     }
 
@@ -210,7 +217,7 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
     release_matrix(A);
 
-    free(rhs);
+    release_matrix(rhs);
 
     return BB_SUCCESS;
 }
@@ -227,14 +234,18 @@ void release_bb_result(bb_result_t* result) {
     }
 
     if (input->int_para_fc) {
-        release_matrix(input->int_para_fc);
+        for (int n = 0; n < input->para_batch; n++) { release_matrix(input->int_para_fc[n]); }
+
+        free(input->int_para_fc);
     }
 
     if (input->dble_para_fc) {
-        release_matrix(input->dble_para_fc);
+        for (int n = 0; n < input->para_batch; n++) { release_matrix(input->dble_para_fc[n]); }
+
+        free(input->dble_para_fc);
     }
 
-    free(result->sol);
+    release_matrix(result->sol);
 
     input->np = NULL;
     input->face2node = NULL;
