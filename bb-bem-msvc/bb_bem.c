@@ -251,14 +251,12 @@ static void matvec_direct(int dim, double** mat, double* p, double* q) {
 // -----------------------------------------------
 // Calculation of residual matrix with a dense matrix: r=b-Ax 
 static void residual_direct(int dim, double** mat, double* x, double* b, double* r) {
-    int row, col;
-
-    for (row = 0; row < dim; row++) {
+    for (int row = 0; row < dim; row++) {
         r[row] = b[row];
     }
 
-    for (row = 0; row < dim; row++) {
-        for (col = 0; col < dim; col++) {
+    for (int row = 0; row < dim; row++) {
+        for (int col = 0; col < dim; col++) {
             r[row] = r[row] - mat[row][col] * x[col];
         }
     }
@@ -268,9 +266,7 @@ static void residual_direct(int dim, double** mat, double* x, double* b, double*
 // Calculation of dot product 
 static double dot_product(int dim, double* x, double* y) {
     double sum = 0;
-    int i;
-
-    for (i = 0; i < dim; i++) {
+    for (int i = 0; i < dim; i++) {
         sum = sum + x[i] * y[i];
     }
 
@@ -279,7 +275,6 @@ static double dot_product(int dim, double* x, double* y) {
 
 // -----------------------------------------------
 static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int max_steps) {
-    int step, i;
     double *r, *shdw, *p, *t, *ap, *kp, *akp, *kt, *akt;
     double alpha, beta, zeta, nom, den, nomold, rnorm, bnorm;
 
@@ -295,7 +290,7 @@ static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double to
     akt = (double*)malloc(sizeof(double) * dim);
 
     // Initialization
-    for (i = 0; i < dim; i++) { p[i] = 0.0; }
+    for (int i = 0; i < dim; i++) { p[i] = 0.0; }
     alpha = 0.0;
     beta = 0.0;
     zeta = 0.0;
@@ -306,7 +301,7 @@ static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double to
     residual_direct(dim, mat, sol, rhs, r);
 
     // Set shadow vector 
-    for (i = 0; i < dim; i++) { shdw[i] = r[i]; }
+    for (int i = 0; i < dim; i++) { shdw[i] = r[i]; }
 
     rnorm = sqrt(dot_product(dim, r, r));
     printf("Original relative residual norm = %20.14e\n", rnorm / bnorm);
@@ -314,13 +309,13 @@ static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double to
     if (rnorm / bnorm < tor) { return; }
 
     // BiCGSTAB iteration 
-    for (step = 1; step <= max_steps; step++) {
+    for (int step = 1; step <= max_steps; step++) {
         matvec_direct(dim, mat, p, ap);
 
-        for (i = 0; i < dim; i++) { p[i] = r[i] + beta * (p[i] - zeta * ap[i]); }
+        for (int i = 0; i < dim; i++) { p[i] = r[i] + beta * (p[i] - zeta * ap[i]); }
 
         // No preconditioning 
-        for (i = 0; i < dim; i++) { kp[i] = p[i]; }
+        for (int i = 0; i < dim; i++) { kp[i] = p[i]; }
 
         matvec_direct(dim, mat, kp, akp);
 
@@ -331,10 +326,10 @@ static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double to
 
         // printf("alpha= %lf",alpha); 
 
-        for (i = 0; i < dim; i++) { t[i] = r[i] - alpha * akp[i]; }
+        for (int i = 0; i < dim; i++) { t[i] = r[i] - alpha * akp[i]; }
 
         // No preconditioning 
-        for (i = 0; i < dim; i++) { kt[i] = t[i]; }
+        for (int i = 0; i < dim; i++) { kt[i] = t[i]; }
 
         matvec_direct(dim, mat, kt, akt);
 
@@ -342,8 +337,8 @@ static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double to
         den = dot_product(dim, akt, akt);
         zeta = nom / den;
 
-        for (i = 0; i < dim; i++) { sol[i] = sol[i] + alpha * kp[i] + zeta * kt[i]; }
-        for (i = 0; i < dim; i++) { r[i] = t[i] - zeta * akt[i]; }
+        for (int i = 0; i < dim; i++) { sol[i] = sol[i] + alpha * kp[i] + zeta * kt[i]; }
+        for (int i = 0; i < dim; i++) { r[i] = t[i] - zeta * akt[i]; }
         beta = alpha / zeta * dot_product(dim, shdw, r) / nomold;
 
         rnorm = sqrt(dot_product(dim, r, r));
