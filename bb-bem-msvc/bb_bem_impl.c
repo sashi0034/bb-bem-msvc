@@ -8,115 +8,124 @@
 
 #include "bb_bem.h"
 
-void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int max_steps);
+static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int max_steps);
 
 int main() {
-    int nofc;
-    int nond;
-    int number_element_dof = 1;
-    int nond_on_face;
-    int nint_para_fc;
-    int** int_para_fc = NULL;
-    int ndble_para_fc;
-    double** dble_para_fc = NULL;
-    int** face2node = NULL;
-    int i, j;
+    bb_result_t result;
+    bb_bem("input.txt", &result);
 
-    FILE *fp, *test, *testrhs;
+    // ----------------------------------------------- fp
 
-    double** a;
-    double *rhs, *sol, tor;
-    int dim, max_steps;
-
-    vector3_t* np;
-
-    fp = fopen("input.txt", "r");
-
-    // Read number of nodes from input data file : nond  
-    fscanf(fp, "%d", &nond);
-
-    // Allocation for the array for the coordinates of the nodes 
-    np = (vector3_t*)malloc(sizeof(vector3_t) * nond);
-
-    // Read the coordinates of the nodes from input data file : np  
-    for (i = 0; i < nond; i++) {
-        fscanf(fp, "%lf %lf %lf", &(np[i].x), &(np[i].y), &(np[i].z));
+    FILE* fp = fopen("out2.data", "w");
+    for (int i = 0; i < result.dim; i++) {
+        fprintf(fp, "%20.14e \n", result.sol[i]);
     }
 
-    // printf("%lf %lf %lf\n",np[1].x,np[1].y,np[1].z); 
-
-    // Read number of faces from input data file : nofc  
-    fscanf(fp, "%d", &nofc);
-
-    // Read number of nodes on each face from input data file : nond_on_face  
-    fscanf(fp, "%d", &nond_on_face);
-
-    // Read number of integer parameters set on each face from input data file : nint_para_fc  
-    fscanf(fp, "%d", &nint_para_fc);
-
-    // Read number of real(double precision) parameters set on each face from input data file : ndble_para_fc  
-    fscanf(fp, "%d", &ndble_para_fc);
-
-    printf("Number of nodes=%d Number of faces=%d\n", nond, nofc);
+    fclose(fp);
 
     // -----------------------------------------------
 
-    face2node = (int**)malloc(sizeof(int*) * nofc);
-    face2node[0] = (int*)malloc(sizeof(int) * nofc * nond_on_face);
-    for (i = 1; i < nofc; i++) {
-        face2node[i] = face2node[i - 1] + nond_on_face;
+    release_bb_result(&result);
+
+    return 0;
+}
+
+#define NUMBER_ELEMENT_DOF  1;
+
+bb_status_t bb_bem(char* filename, bb_result_t* result) {
+    bb_input_t* input = &result->input;
+    *input = (bb_input_t){0}; // Initialize input structure
+
+    int i, j;
+
+    FILE* fp;
+
+    double** a;
+    double *rhs, tor;
+    int max_steps;
+
+    fp = fopen(filename, "r");
+    if (!fp) {
+        printf("Error: Cannot open file %s\n", filename);
+        return BB_ERR_FILE_OPEN;
     }
-    for (i = 0; i < nofc; i++) {
-        for (j = 0; j < nond_on_face; j++) {
-            fscanf(fp, "%d", &(face2node[i][j]));
+
+    // Read number of nodes from input data file : nond  
+    fscanf(fp, "%d", &input->nond);
+
+    // Allocation for the array for the coordinates of the nodes 
+    input->np = (vector3_t*)malloc(sizeof(vector3_t) * input->nond);
+
+    // Read the coordinates of the nodes from input data file : np  
+    for (i = 0; i < input->nond; i++) {
+        fscanf(fp, "%lf %lf %lf", &(input->np[i].x), &(input->np[i].y), &(input->np[i].z));
+    }
+
+    // Read number of faces from input data file : nofc  
+    fscanf(fp, "%d", &input->nofc);
+
+    // Read number of nodes on each face from input data file : nond_on_face  
+    fscanf(fp, "%d", &input->nond_on_face);
+
+    // Read number of integer parameters set on each face from input data file : nint_para_fc  
+    fscanf(fp, "%d", &input->nint_para_fc);
+
+    // Read number of real(double precision) parameters set on each face from input data file : ndble_para_fc  
+    fscanf(fp, "%d", &input->ndble_para_fc);
+
+    printf("Number of nodes=%d Number of faces=%d\n", input->nond, input->nofc);
+
+    // -----------------------------------------------
+
+    input->face2node = (int**)malloc(sizeof(int*) * input->nofc);
+    input->face2node[0] = (int*)malloc(sizeof(int) * input->nofc * input->nond_on_face);
+    for (i = 1; i < input->nofc; i++) {
+        input->face2node[i] = input->face2node[i - 1] + input->nond_on_face;
+    }
+    for (i = 0; i < input->nofc; i++) {
+        for (j = 0; j < input->nond_on_face; j++) {
+            fscanf(fp, "%d", &(input->face2node[i][j]));
         }
     }
 
-    if (nint_para_fc > 0) {
-        int_para_fc = (int**)malloc(sizeof(int*) * nofc);
-        int_para_fc[0] = (int*)malloc(sizeof(int) * nofc * nint_para_fc);
-        for (i = 1; i < nofc; i++) {
-            int_para_fc[i] = int_para_fc[i - 1] + nint_para_fc;
+    if (input->nint_para_fc > 0) {
+        input->int_para_fc = (int**)malloc(sizeof(int*) * input->nofc);
+        input->int_para_fc[0] = (int*)malloc(sizeof(int) * input->nofc * input->nint_para_fc);
+        for (i = 1; i < input->nofc; i++) {
+            input->int_para_fc[i] = input->int_para_fc[i - 1] + input->nint_para_fc;
         }
 
-        for (i = 0; i < nofc; i++) {
-            for (j = 0; j < nint_para_fc; j++) {
-                fscanf(fp, "%d", &(int_para_fc[i][j]));
+        for (i = 0; i < input->nofc; i++) {
+            for (j = 0; j < input->nint_para_fc; j++) {
+                fscanf(fp, "%d", &input->int_para_fc[i][j]);
             }
         }
     }
 
-    if (ndble_para_fc > 0) {
-        dble_para_fc = (double**)malloc(sizeof(double*) * nofc);
-        dble_para_fc[0] = (double*)malloc(sizeof(double) * nofc * ndble_para_fc);
-        for (i = 1; i < nofc; i++) {
-            dble_para_fc[i] = dble_para_fc[i - 1] + ndble_para_fc;
+    if (input->ndble_para_fc > 0) {
+        input->dble_para_fc = (double**)malloc(sizeof(double*) * input->nofc);
+        input->dble_para_fc[0] = (double*)malloc(sizeof(double) * input->nofc * input->ndble_para_fc);
+        for (i = 1; i < input->nofc; i++) {
+            input->dble_para_fc[i] = input->dble_para_fc[i - 1] + input->ndble_para_fc;
         }
 
-        for (i = 0; i < nofc; i++) {
-            for (j = 0; j < ndble_para_fc; j++) {
-                fscanf(fp, "%lf", &(dble_para_fc[i][j]));
+        for (i = 0; i < input->nofc; i++) {
+            for (j = 0; j < input->ndble_para_fc; j++) {
+                fscanf(fp, "%lf", &(input->dble_para_fc[i][j]));
             }
         }
     }
 
-    /* for(i=0;i<nofc;i++){
-       for(j=0;j<nond_on_face;j++){
-          printf("%d ",face2node[i][j]);
-       }
-       printf("\n");
-    } */
+    result->dim = input->nofc * NUMBER_ELEMENT_DOF;
 
-    dim = nofc * number_element_dof;
-
-    a = (double**)malloc(sizeof(double*) * dim);
-    a[0] = (double*)malloc(sizeof(double) * dim * dim);
-    for (i = 1; i < dim; i++) {
-        a[i] = a[i - 1] + dim;
+    a = (double**)malloc(sizeof(double*) * result->dim);
+    a[0] = (double*)malloc(sizeof(double) * result->dim * result->dim);
+    for (i = 1; i < result->dim; i++) {
+        a[i] = a[i - 1] + result->dim;
     }
 
-    for (i = 0; i < dim; i++) {
-        for (j = 0; j < dim; j++) {
+    for (i = 0; i < result->dim; i++) {
+        for (j = 0; j < result->dim; j++) {
             a[i][j] = 0.0;
         }
     }
@@ -124,82 +133,77 @@ int main() {
     tor = 1E-8;
     max_steps = 1000;
 
-    rhs = (double*)malloc(sizeof(double) * dim);
-    sol = (double*)malloc(sizeof(double) * dim);
+    rhs = (double*)malloc(sizeof(double) * result->dim);
+    result->sol = (double*)malloc(sizeof(double) * result->dim);
 
-    for (i = 0; i < dim; i++) {
-        //   rhs[i]=1.0; 
-        sol[i] = 0.0;
-        /*   a[i][i]=2.0;
-        if (i-1>=0) {a[i][i-1]=-1.0;}
-        if (i+1<dim) {a[i][i+1]=-1.0;} */
+    for (i = 0; i < result->dim; i++) {
+        result->sol[i] = 0.0;
     }
-
-    /*
-   test = fopen("matrix.txt","r");
-   for(i=0;i<dim;i++){
-     for(j=0;j<dim;j++){
-        fscanf(test, "%lf", &(a[i][j]));
-      }
-    }
-   
-   testrhs = fopen("rhs.txt","r");
-   for(i=0;i<dim;i++){
-        fscanf(testrhs, "%lf", &(rhs[i]));
-    }
-   
-    fclose(test);
-    fclose(testrhs);
-    */
 
     // User Specified Function 
     // element_integral(coordinate np, double **a, ); 
 
-    for (i = 0; i < dim; i++) {
-        for (j = 0; j < dim; j++) {
-            //     fscanf(test, "%lf", &(a[i][j]));
-            a[i][j] = element_ij_(&i, &j, &nond, &nofc, &np[0], &face2node[0][0]);
+    for (i = 0; i < result->dim; i++) {
+        for (j = 0; j < result->dim; j++) {
+            a[i][j] = element_ij_(&i, &j, &input->nond, &input->nofc, &input->np[0], &input->face2node[0][0]);
         }
     }
 
-    //testrhs = fopen("rhs.txt","r");
-    for (i = 0; i < dim; i++) {
-        //     fscanf(fp, "%lf", &(rhs[i])); 
-        rhs[i] = dble_para_fc[i][0];
+    for (i = 0; i < result->dim; i++) {
+        rhs[i] = input->dble_para_fc[i][0];
     }
 
     fclose(fp);
 
     printf("Linear system was generated.\n");
 
-    pbicgstab(dim, a, rhs, sol, tor, max_steps);
-
-    fp = fopen("out2.data", "w");
-    for (i = 0; i < dim; i++)
-        fprintf(fp, "%20.14e \n", sol[i]);
+    pbicgstab(result->dim, a, rhs, result->sol, tor, max_steps);
 
     // printf("%d,%d\n",nint_para_fc,ndble_para_fc); 
-    free(np);
-    free(face2node[0]);
-    free(face2node);
-    if (nint_para_fc > 0) {
-        free(int_para_fc[0]);
-        free(int_para_fc);
-    }
-    if (ndble_para_fc > 0) {
-        free(dble_para_fc[0]);
-        free(dble_para_fc);
-    }
 
     printf("OK\n");
+
     free(a[0]);
     free(a);
+
     free(rhs);
-    free(sol);
+
+    return BB_SUCCESS;
+}
+
+void release_bb_result(bb_result_t* result) {
+    if (!result) return;
+
+    bb_input_t* input = &result->input;
+
+    free(input->np);
+
+    if (input->face2node) {
+        free(input->face2node[0]); // This also frees memory in [1]-[^1]
+        free(input->face2node);
+    }
+
+    if (input->int_para_fc) {
+        free(input->int_para_fc[0]); // This also frees memory in [1]-[^1]
+        free(input->int_para_fc);
+    }
+
+    if (input->dble_para_fc) {
+        free(input->dble_para_fc[0]); // This also frees memory in [1]-[^1]
+        free(input->dble_para_fc);
+    }
+
+    free(result->sol);
+
+    input->np = NULL;
+    input->face2node = NULL;
+    input->int_para_fc = NULL;
+    input->dble_para_fc = NULL;
+    result->sol = NULL;
 }
 
 // Matrix vector multiplication with a dense matrix: q=Ap 
-void matvec_direct(int dim, double** mat, double* p, double* q) {
+static void matvec_direct(int dim, double** mat, double* p, double* q) {
     int row, col;
 
     for (row = 0; row < dim; row++) {
@@ -214,10 +218,8 @@ void matvec_direct(int dim, double** mat, double* p, double* q) {
 }
 
 // -----------------------------------------------
-
-// -----------------------------------------------
 // Calculation of residual matrix with a dense matrix: r=b-Ax 
-void residual_direct(int dim, double** mat, double* x, double* b, double* r) {
+static void residual_direct(int dim, double** mat, double* x, double* b, double* r) {
     int row, col;
 
     for (row = 0; row < dim; row++) {
@@ -232,10 +234,8 @@ void residual_direct(int dim, double** mat, double* x, double* b, double* r) {
 }
 
 // -----------------------------------------------
-
-// -----------------------------------------------
 // Calculation of dot product 
-double dot_product(int dim, double* x, double* y) {
+static double dot_product(int dim, double* x, double* y) {
     double sum = 0;
     int i;
 
@@ -247,7 +247,7 @@ double dot_product(int dim, double* x, double* y) {
 }
 
 // -----------------------------------------------
-void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int max_steps) {
+static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int max_steps) {
     int step, i;
     double *r, *shdw, *p, *t, *ap, *kp, *akp, *kt, *akt;
     double alpha, beta, zeta, nom, den, nomold, rnorm, bnorm;
