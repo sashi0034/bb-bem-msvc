@@ -38,15 +38,12 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
     bb_input_t* input = &result->input;
     *input = (bb_input_t){0}; // Initialize input structure
 
-    int i, j;
-
-    FILE* fp;
-
     double** a;
-    double *rhs, tor;
+    double* rhs;
+    double tor;
     int max_steps;
 
-    fp = fopen(filename, "r");
+    FILE* fp = fopen(filename, "r");
     if (!fp) {
         printf("Error: Cannot open file %s\n", filename);
         return BB_ERR_FILE_OPEN;
@@ -59,7 +56,7 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
     input->np = (vector3_t*)malloc(sizeof(vector3_t) * input->nond);
 
     // Read the coordinates of the nodes from input data file : np  
-    for (i = 0; i < input->nond; i++) {
+    for (int i = 0; i < input->nond; i++) {
         fscanf(fp, "%lf %lf %lf", &(input->np[i].x), &(input->np[i].y), &(input->np[i].z));
     }
 
@@ -81,11 +78,11 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
     input->face2node = (int**)malloc(sizeof(int*) * input->nofc);
     input->face2node[0] = (int*)malloc(sizeof(int) * input->nofc * input->nond_on_face);
-    for (i = 1; i < input->nofc; i++) {
+    for (int i = 1; i < input->nofc; i++) {
         input->face2node[i] = input->face2node[i - 1] + input->nond_on_face;
     }
-    for (i = 0; i < input->nofc; i++) {
-        for (j = 0; j < input->nond_on_face; j++) {
+    for (int i = 0; i < input->nofc; i++) {
+        for (int j = 0; j < input->nond_on_face; j++) {
             fscanf(fp, "%d", &(input->face2node[i][j]));
         }
     }
@@ -93,12 +90,12 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
     if (input->nint_para_fc > 0) {
         input->int_para_fc = (int**)malloc(sizeof(int*) * input->nofc);
         input->int_para_fc[0] = (int*)malloc(sizeof(int) * input->nofc * input->nint_para_fc);
-        for (i = 1; i < input->nofc; i++) {
+        for (int i = 1; i < input->nofc; i++) {
             input->int_para_fc[i] = input->int_para_fc[i - 1] + input->nint_para_fc;
         }
 
-        for (i = 0; i < input->nofc; i++) {
-            for (j = 0; j < input->nint_para_fc; j++) {
+        for (int i = 0; i < input->nofc; i++) {
+            for (int j = 0; j < input->nint_para_fc; j++) {
                 fscanf(fp, "%d", &input->int_para_fc[i][j]);
             }
         }
@@ -107,12 +104,12 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
     if (input->ndble_para_fc > 0) {
         input->dble_para_fc = (double**)malloc(sizeof(double*) * input->nofc);
         input->dble_para_fc[0] = (double*)malloc(sizeof(double) * input->nofc * input->ndble_para_fc);
-        for (i = 1; i < input->nofc; i++) {
+        for (int i = 1; i < input->nofc; i++) {
             input->dble_para_fc[i] = input->dble_para_fc[i - 1] + input->ndble_para_fc;
         }
 
-        for (i = 0; i < input->nofc; i++) {
-            for (j = 0; j < input->ndble_para_fc; j++) {
+        for (int i = 0; i < input->nofc; i++) {
+            for (int j = 0; j < input->ndble_para_fc; j++) {
                 fscanf(fp, "%lf", &(input->dble_para_fc[i][j]));
             }
         }
@@ -122,12 +119,12 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
     a = (double**)malloc(sizeof(double*) * result->dim);
     a[0] = (double*)malloc(sizeof(double) * result->dim * result->dim);
-    for (i = 1; i < result->dim; i++) {
+    for (int i = 1; i < result->dim; i++) {
         a[i] = a[i - 1] + result->dim;
     }
 
-    for (i = 0; i < result->dim; i++) {
-        for (j = 0; j < result->dim; j++) {
+    for (int i = 0; i < result->dim; i++) {
+        for (int j = 0; j < result->dim; j++) {
             a[i][j] = 0.0;
         }
     }
@@ -138,20 +135,20 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
     rhs = (double*)malloc(sizeof(double) * result->dim);
     result->sol = (double*)malloc(sizeof(double) * result->dim);
 
-    for (i = 0; i < result->dim; i++) {
+    for (int i = 0; i < result->dim; i++) {
         result->sol[i] = 0.0;
     }
 
     // User Specified Function 
     // element_integral(coordinate np, double **a, ); 
 
-    for (i = 0; i < result->dim; i++) {
-        for (j = 0; j < result->dim; j++) {
+    for (int i = 0; i < result->dim; i++) {
+        for (int j = 0; j < result->dim; j++) {
             a[i][j] = element_ij_(&i, &j, &input->nond, &input->nofc, &input->np[0], &input->face2node[0][0]);
         }
     }
 
-    for (i = 0; i < result->dim; i++) {
+    for (int i = 0; i < result->dim; i++) {
         rhs[i] = input->dble_para_fc[i][0];
     }
 
