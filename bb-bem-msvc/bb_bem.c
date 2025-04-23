@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdint.h>
 
 #include "bb_bem.h"
 
@@ -32,11 +33,35 @@ int main() {
 }
 #endif
 
+// -----------------------------------------------
+
 #define NUMBER_ELEMENT_DOF  1;
 
 #define TOR 1e-8 // Tolerance for convergence
 
 #define MAX_STEPS 1000 // Maximum number of iterations
+
+void** allocate_matrix(size_t rows, size_t cols, size_t elem_size) {
+    void** array = (void**)malloc(sizeof(void*) * rows);
+    if (!array) return NULL;
+
+    array[0] = malloc(rows * cols * elem_size);
+    if (!array[0]) {
+        free(array);
+        return NULL;
+    }
+
+    for (size_t i = 1; i < rows; i++) {
+        array[i] = (uint8_t*)array[0] + i * cols * elem_size;
+    }
+
+    return array;
+}
+
+static void release_matrix(void** matrix) {
+    if (matrix && matrix[0]) free(matrix[0]);
+    if (matrix) free(matrix);
+}
 
 static bb_status_t read_input_from_file(const char* filename, bb_input_t* input) {
     FILE* fp = fopen(filename, "r");
@@ -52,6 +77,7 @@ static bb_status_t read_input_from_file(const char* filename, bb_input_t* input)
 
     // Allocation for the array for the coordinates of the nodes 
     input->np = (vector3_t*)malloc(sizeof(vector3_t) * input->nond);
+    if (!input->np) goto bad_alloc;
 
     // Read the coordinates of the nodes from an input data file: np  
     for (int i = 0; i < input->nond; i++) {
@@ -76,63 +102,57 @@ static bb_status_t read_input_from_file(const char* filename, bb_input_t* input)
 
     // -----------------------------------------------
 
-    input->face2node = (int**)malloc(sizeof(int*) * input->nofc);
-    input->face2node[0] = (int*)malloc(sizeof(int) * input->nofc * input->nond_on_face);
-
-    for (int i = 1; i < input->nofc; i++) {
-        input->face2node[i] = input->face2node[i - 1] + input->nond_on_face;
-    }
+    // face2node
+    input->face2node = (int**)allocate_matrix(input->nofc, input->nond_on_face, sizeof(int));
+    if (!input->face2node) goto bad_alloc;
 
     for (int i = 0; i < input->nofc; i++) {
         for (int j = 0; j < input->nond_on_face; j++) {
-            if (fscanf(fp, "%d", &(input->face2node[i][j])) != 1) {
-                goto fail;
-            }
+            if (fscanf(fp, "%d", &input->face2node[i][j]) != 1) goto fail;
         }
     }
 
+    // int_para_fc
     if (input->nint_para_fc > 0) {
-        input->int_para_fc = (int**)malloc(sizeof(int*) * input->nofc);
-        input->int_para_fc[0] = (int*)malloc(sizeof(int) * input->nofc * input->nint_para_fc);
-        for (int i = 1; i < input->nofc; i++) {
-            input->int_para_fc[i] = input->int_para_fc[i - 1] + input->nint_para_fc;
-        }
+        input->int_para_fc = (int**)allocate_matrix(input->nofc, input->nint_para_fc, sizeof(int));
+        if (!input->int_para_fc) goto bad_alloc;
 
         for (int i = 0; i < input->nofc; i++) {
             for (int j = 0; j < input->nint_para_fc; j++) {
-                if (fscanf(fp, "%d", &input->int_para_fc[i][j]) != 1) {
-                    goto fail;
-                }
+                if (fscanf(fp, "%d", &input->int_para_fc[i][j]) != 1) goto fail;
             }
         }
     }
 
+    // dble_para_fc
     if (input->ndble_para_fc > 0) {
-        input->dble_para_fc = (double**)malloc(sizeof(double*) * input->nofc);
-        input->dble_para_fc[0] = (double*)malloc(sizeof(double) * input->nofc * input->ndble_para_fc);
-        for (int i = 1; i < input->nofc; i++) {
-            input->dble_para_fc[i] = input->dble_para_fc[i - 1] + input->ndble_para_fc;
-        }
+        input->dble_para_fc = (double**)allocate_matrix(input->nofc, input->ndble_para_fc, sizeof(double));
+        if (!input->dble_para_fc) goto bad_alloc;
 
         for (int i = 0; i < input->nofc; i++) {
             for (int j = 0; j < input->ndble_para_fc; j++) {
-                if (fscanf(fp, "%lf", &(input->dble_para_fc[i][j])) != 1) {
-                    goto fail;
-                }
+                if (fscanf(fp, "%lf", &input->dble_para_fc[i][j]) != 1) goto fail;
             }
         }
     }
 
     success = 1;
-fail:
-    fclose(fp);
 
+fail:
     if (!success) {
-        free(input->np);
+        fclose(fp);
         printf("Error: Invalid file format %s\n", filename);
         return BB_ERR_FILE_FORMAT;
     }
 
+bad_alloc:
+    if (input->np) {
+        fclose(fp);
+        printf("Error: Out of memory while reading %s\n", filename);
+        return BB_ERR_FILE_OPEN;
+    }
+
+    fclose(fp);
     return BB_SUCCESS;
 }
 
@@ -142,27 +162,16 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
     read_input_from_file(filename, input);
 
-    double** a;
-    double* rhs;
-
     // -----------------------------------------------
 
     result->dim = input->nofc * NUMBER_ELEMENT_DOF;
 
-    a = (double**)malloc(sizeof(double*) * result->dim);
-    a[0] = (double*)malloc(sizeof(double) * result->dim * result->dim);
-    for (int i = 1; i < result->dim; i++) {
-        a[i] = a[i - 1] + result->dim;
-    }
+    double** a = (double**)allocate_matrix(result->dim, result->dim, sizeof(double));
+    if (!a) return BB_ERR_MEMORY_ALLOC;
 
-    for (int i = 0; i < result->dim; i++) {
-        for (int j = 0; j < result->dim; j++) {
-            a[i][j] = 0.0;
-        }
-    }
+    double* rhs = malloc(sizeof(double) * result->dim);
 
-    rhs = (double*)malloc(sizeof(double) * result->dim);
-    result->sol = (double*)malloc(sizeof(double) * result->dim);
+    result->sol = malloc(sizeof(double) * result->dim);
 
     for (int i = 0; i < result->dim; i++) {
         result->sol[i] = 0.0;
@@ -189,8 +198,7 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
     printf("OK\n");
 
-    free(a[0]);
-    free(a);
+    release_matrix(a);
 
     free(rhs);
 
@@ -205,18 +213,15 @@ void release_bb_result(bb_result_t* result) {
     free(input->np);
 
     if (input->face2node) {
-        free(input->face2node[0]); // This also frees memory in [1]-[^1]
-        free(input->face2node);
+        release_matrix(input->face2node);
     }
 
     if (input->int_para_fc) {
-        free(input->int_para_fc[0]); // This also frees memory in [1]-[^1]
-        free(input->int_para_fc);
+        release_matrix(input->int_para_fc);
     }
 
     if (input->dble_para_fc) {
-        free(input->dble_para_fc[0]); // This also frees memory in [1]-[^1]
-        free(input->dble_para_fc);
+        release_matrix(input->dble_para_fc);
     }
 
     free(result->sol);
