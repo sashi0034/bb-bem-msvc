@@ -17,6 +17,12 @@ namespace
 
 		return texture;
 	}
+
+	struct SphereData {
+		Vec3 center;
+		double radius;
+		ColorF color;
+	};
 }
 
 struct Viewer_3sd : IAddon {
@@ -39,11 +45,39 @@ struct Viewer_3sd : IAddon {
 
 	bb_result_t m_bb_result{};
 
+	Array<SphereData> m_sphereList{};
+
 	bool init() override {
+		Window::SetTitle(U"Viewer_3sd");
+
 		// ウインドウとシーンを 1280x720 にリサイズ
 		Window::Resize(1280, 720);
 
-		if (bb_bem("../../bb-bem-msvc/input.txt", &m_bb_result) != BB_SUCCESS) {
+		if (bb_bem("../../bb-bem-msvc/input.txt", &m_bb_result) == BB_SUCCESS) {
+			const auto& bb_input = m_bb_result.input;
+			for (int fc_id = 0; fc_id < bb_input.nofc; ++fc_id) {
+				// 各要素の重心を計算
+				Vec3 centroid{0.0, 0.0, 0.0};
+				for (int nd_id = 0; nd_id < m_bb_result.input.nond_on_face; nd_id++) {
+					centroid += Vec3{
+						bb_input.np[bb_input.face2node[fc_id][nd_id]].x,
+						bb_input.np[bb_input.face2node[fc_id][nd_id]].y,
+						bb_input.np[bb_input.face2node[fc_id][nd_id]].z
+					};
+				}
+
+				centroid /= m_bb_result.input.nond_on_face;
+
+				const double sol = m_bb_result.sol[fc_id];
+
+				m_sphereList.push_back({
+					.center = centroid * 10,
+					.radius = Math::Abs(sol) * 0.5e10,
+					.color = sol < 0 ? Palette::Orange.removeSRGBCurve() : Palette::Lightskyblue.removeSRGBCurve()
+				});
+			}
+		}
+		else {
 			std::cerr << "Error: Cannot open file input.txt" << std::endl;
 		}
 
@@ -67,17 +101,11 @@ struct Viewer_3sd : IAddon {
 			// renderTexture を 3D 描画のレンダーターゲットに
 			const ScopedRenderTarget3D target{m_renderTexture.clear(m_backgroundColor)};
 
-			// 床を描画
-			Plane{64}.draw(m_planeTexture);
+			Plane{Vec3{}.withY(-10.0), 64}.draw(m_planeTexture);
 
-			// ボックスを描画
-			Box{-8, 2, 0, 4}.draw(ColorF{0.8, 0.6, 0.4}.removeSRGBCurve());
-
-			// 球を描画
-			Sphere{0, 2, 0, 2}.draw(ColorF{0.4, 0.8, 0.6}.removeSRGBCurve());
-
-			// 円柱を描画
-			Cylinder{8, 2, 0, 2, 4}.draw(ColorF{0.6, 0.4, 0.8}.removeSRGBCurve());
+			for (const auto& sphereData : m_sphereList) {
+				Sphere{sphereData.center, sphereData.radius}.draw(sphereData.color);
+			}
 		}
 
 		// 3D シーンを 2D シーンに描画
