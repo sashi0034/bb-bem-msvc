@@ -68,7 +68,7 @@ struct Viewer_3sd : IAddon {
 
 				centroid /= m_bb_result.input.nond_on_face;
 
-				const double sol = m_bb_result.sol[fc_id];
+				const double sol = m_bb_result.sol[10][fc_id]; // TODO: インデックスの変更対応
 
 				m_sphereList.push_back({
 					.center = centroid * 10,

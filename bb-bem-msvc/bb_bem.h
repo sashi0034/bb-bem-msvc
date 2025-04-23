@@ -2,7 +2,7 @@
 #define BB_BEM_H
 
 // ユーザー側で定義される関数のアトリビュート
-#define BB_USER_FUNC
+#define BB_USER_FUNC extern
 
 #define BB_API
 
@@ -53,6 +53,9 @@ typedef struct bb_input_t {
     /// @brief 各要素上で定義される double 型パラメータ数 
     int ndble_para_fc;
 
+    /// @brief 各要素におけるパラメータのバッチ数
+    int para_batch; // TODO
+
     /// @brief 節点座標 (サイズ: nond) 
     vector3_t* np;
 
@@ -74,8 +77,8 @@ typedef struct bb_result_t {
     /// @brief 解ベクトルのサイズ (サイズ: nofc * 1)
     int dim;
 
-    /// @brief 解ベクトル (サイズ: dim)
-    double* sol;
+    /// @brief 解ベクトル (サイズ: batch * dim)
+    double** sol;
 } bb_result_t;
 
 typedef enum {

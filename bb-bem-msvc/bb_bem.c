@@ -9,7 +9,7 @@
 
 #include "bb_bem.h"
 
-static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int max_steps);
+static void pbicgstab(int dim, double** A, double* rhs, double* sol, double tor, int max_steps);
 
 #if !defined(BB_NO_MAIN)
 int main() {
@@ -98,6 +98,8 @@ static bb_status_t read_input_from_file(const char* filename, bb_input_t* input)
     // Read the number of real(double precision) parameters set on each face from an input data file: ndble_para_fc  
     if (fscanf(fp, "%d", &input->ndble_para_fc) != 1) goto fail;
 
+    input->para_batch = 100; // TODO
+
     printf("Number of nodes=%d Number of faces=%d\n", input->nond, input->nofc);
 
     // -----------------------------------------------
@@ -166,15 +168,19 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
     result->dim = input->nofc * NUMBER_ELEMENT_DOF;
 
-    double** a = (double**)allocate_matrix(result->dim, result->dim, sizeof(double));
-    if (!a) return BB_ERR_MEMORY_ALLOC;
+    double** A = (double**)allocate_matrix(result->dim, result->dim, sizeof(double));
+    if (!A) return BB_ERR_MEMORY_ALLOC;
 
-    double* rhs = malloc(sizeof(double) * result->dim);
+    double** rhs = (double**)allocate_matrix(input->para_batch, result->dim, sizeof(double));
+    if (!rhs) return BB_ERR_MEMORY_ALLOC;
 
-    result->sol = malloc(sizeof(double) * result->dim);
+    result->sol = (double**)allocate_matrix(input->para_batch, result->dim, sizeof(double));
+    if (!result->sol) return BB_ERR_MEMORY_ALLOC;
 
-    for (int i = 0; i < result->dim; i++) {
-        result->sol[i] = 0.0;
+    for (int n = 0; n < input->para_batch; n++) {
+        for (int i = 0; i < result->dim; i++) {
+            result->sol[n][i] = 0.0;
+        }
     }
 
     // User Specified Function 
@@ -182,23 +188,27 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
     for (int i = 0; i < result->dim; i++) {
         for (int j = 0; j < result->dim; j++) {
-            a[i][j] = element_ij_(&i, &j, &input->nond, &input->nofc, &input->np[0], &input->face2node[0][0]);
+            A[i][j] = element_ij_(&i, &j, &input->nond, &input->nofc, &input->np[0], &input->face2node[0][0]);
         }
     }
 
-    for (int i = 0; i < result->dim; i++) {
-        rhs[i] = input->dble_para_fc[i][0];
+    for (int n = 0; n < input->para_batch; n++) {
+        for (int i = 0; i < result->dim; i++) {
+            rhs[n][i] = input->dble_para_fc[i][0]; // TODO
+        }
     }
 
     printf("Linear system was generated.\n");
 
-    pbicgstab(result->dim, a, rhs, result->sol, TOR, MAX_STEPS);
+    for (int i = 0; i < input->para_batch; ++i) {
+        pbicgstab(result->dim, A, rhs[i], result->sol[i], TOR, MAX_STEPS);
+    }
 
     // printf("%d,%d\n",nint_para_fc,ndble_para_fc); 
 
     printf("OK\n");
 
-    release_matrix(a);
+    release_matrix(A);
 
     free(rhs);
 
@@ -274,7 +284,7 @@ static double dot_product(int dim, double* x, double* y) {
 }
 
 // -----------------------------------------------
-static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double tor, int max_steps) {
+static void pbicgstab(int dim, double** A, double* rhs, double* sol, double tor, int max_steps) {
     double *r, *shdw, *p, *t, *ap, *kp, *akp, *kt, *akt;
     double alpha, beta, zeta, nom, den, nomold, rnorm, bnorm;
 
@@ -298,7 +308,7 @@ static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double to
     bnorm = sqrt(dot_product(dim, rhs, rhs));
 
     // Initial residual   
-    residual_direct(dim, mat, sol, rhs, r);
+    residual_direct(dim, A, sol, rhs, r);
 
     // Set shadow vector 
     for (int i = 0; i < dim; i++) { shdw[i] = r[i]; }
@@ -310,14 +320,14 @@ static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double to
 
     // BiCGSTAB iteration 
     for (int step = 1; step <= max_steps; step++) {
-        matvec_direct(dim, mat, p, ap);
+        matvec_direct(dim, A, p, ap);
 
         for (int i = 0; i < dim; i++) { p[i] = r[i] + beta * (p[i] - zeta * ap[i]); }
 
         // No preconditioning 
         for (int i = 0; i < dim; i++) { kp[i] = p[i]; }
 
-        matvec_direct(dim, mat, kp, akp);
+        matvec_direct(dim, A, kp, akp);
 
         nom = dot_product(dim, shdw, r);
         den = dot_product(dim, shdw, akp);
@@ -331,7 +341,7 @@ static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double to
         // No preconditioning 
         for (int i = 0; i < dim; i++) { kt[i] = t[i]; }
 
-        matvec_direct(dim, mat, kt, akt);
+        matvec_direct(dim, A, kt, akt);
 
         nom = dot_product(dim, akt, t);
         den = dot_product(dim, akt, akt);
@@ -350,7 +360,7 @@ static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double to
 
     // Confirmation of residual 
 
-    residual_direct(dim, mat, sol, rhs, r);
+    residual_direct(dim, A, sol, rhs, r);
     rnorm = sqrt(dot_product(dim, r, r));
 
     printf("Relative residual norm = %20.14e \n", rnorm / bnorm);
@@ -364,6 +374,4 @@ static void pbicgstab(int dim, double** mat, double* rhs, double* sol, double to
     free(akp);
     free(kt);
     free(akt);
-
-    return;
 }
