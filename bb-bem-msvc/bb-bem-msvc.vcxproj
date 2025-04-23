@@ -127,7 +127,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="bb_bem_impl.c" />
+    <ClCompile Include="bb_bem.c" />
     <ClCompile Include="user_func.c" />
   </ItemGroup>
   <ItemGroup>
