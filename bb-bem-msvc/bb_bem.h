@@ -1,7 +1,7 @@
 ﻿#ifndef BB_BEM_H
 #define BB_BEM_H
 
-// ユーザー側で定義される関数
+// ユーザー側で定義される関数のアトリビュート
 #define BB_USER_FUNC
 
 #define BB_API

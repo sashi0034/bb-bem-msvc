@@ -34,43 +34,43 @@ int main() {
 
 #define NUMBER_ELEMENT_DOF  1;
 
-bb_status_t bb_bem(const char* filename, bb_result_t* result) {
-    bb_input_t* input = &result->input;
-    *input = (bb_input_t){0}; // Initialize input structure
+#define TOR 1e-8 // Tolerance for convergence
 
-    double** a;
-    double* rhs;
-    double tor;
-    int max_steps;
+#define MAX_STEPS 1000 // Maximum number of iterations
 
+static bb_status_t read_input_from_file(const char* filename, bb_input_t* input) {
     FILE* fp = fopen(filename, "r");
     if (!fp) {
         printf("Error: Cannot open file %s\n", filename);
         return BB_ERR_FILE_OPEN;
     }
 
-    // Read number of nodes from input data file : nond  
-    fscanf(fp, "%d", &input->nond);
+    int success = 0;
+
+    // Read the number of nodes from an input data file: nond  
+    if (fscanf(fp, "%d", &input->nond) != 1) goto fail;
 
     // Allocation for the array for the coordinates of the nodes 
     input->np = (vector3_t*)malloc(sizeof(vector3_t) * input->nond);
 
-    // Read the coordinates of the nodes from input data file : np  
+    // Read the coordinates of the nodes from an input data file: np  
     for (int i = 0; i < input->nond; i++) {
-        fscanf(fp, "%lf %lf %lf", &(input->np[i].x), &(input->np[i].y), &(input->np[i].z));
+        if (fscanf(fp, "%lf %lf %lf", &(input->np[i].x), &(input->np[i].y), &(input->np[i].z)) != 3) {
+            goto fail;
+        }
     }
 
-    // Read number of faces from input data file : nofc  
-    fscanf(fp, "%d", &input->nofc);
+    // Read the number of faces from an input data file: nofc  
+    if (fscanf(fp, "%d", &input->nofc) != 1) goto fail;
 
-    // Read number of nodes on each face from input data file : nond_on_face  
-    fscanf(fp, "%d", &input->nond_on_face);
+    // Read the number of nodes on each face from an input data file: nond_on_face  
+    if (fscanf(fp, "%d", &input->nond_on_face) != 1) goto fail;
 
-    // Read number of integer parameters set on each face from input data file : nint_para_fc  
-    fscanf(fp, "%d", &input->nint_para_fc);
+    // Read the number of integer parameters set on each face from an input data file: nint_para_fc  
+    if (fscanf(fp, "%d", &input->nint_para_fc) != 1) goto fail;
 
-    // Read number of real(double precision) parameters set on each face from input data file : ndble_para_fc  
-    fscanf(fp, "%d", &input->ndble_para_fc);
+    // Read the number of real(double precision) parameters set on each face from an input data file: ndble_para_fc  
+    if (fscanf(fp, "%d", &input->ndble_para_fc) != 1) goto fail;
 
     printf("Number of nodes=%d Number of faces=%d\n", input->nond, input->nofc);
 
@@ -78,12 +78,16 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
     input->face2node = (int**)malloc(sizeof(int*) * input->nofc);
     input->face2node[0] = (int*)malloc(sizeof(int) * input->nofc * input->nond_on_face);
+
     for (int i = 1; i < input->nofc; i++) {
         input->face2node[i] = input->face2node[i - 1] + input->nond_on_face;
     }
+
     for (int i = 0; i < input->nofc; i++) {
         for (int j = 0; j < input->nond_on_face; j++) {
-            fscanf(fp, "%d", &(input->face2node[i][j]));
+            if (fscanf(fp, "%d", &(input->face2node[i][j])) != 1) {
+                goto fail;
+            }
         }
     }
 
@@ -96,7 +100,9 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
         for (int i = 0; i < input->nofc; i++) {
             for (int j = 0; j < input->nint_para_fc; j++) {
-                fscanf(fp, "%d", &input->int_para_fc[i][j]);
+                if (fscanf(fp, "%d", &input->int_para_fc[i][j]) != 1) {
+                    goto fail;
+                }
             }
         }
     }
@@ -110,10 +116,36 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
         for (int i = 0; i < input->nofc; i++) {
             for (int j = 0; j < input->ndble_para_fc; j++) {
-                fscanf(fp, "%lf", &(input->dble_para_fc[i][j]));
+                if (fscanf(fp, "%lf", &(input->dble_para_fc[i][j])) != 1) {
+                    goto fail;
+                }
             }
         }
     }
+
+    success = 1;
+fail:
+    fclose(fp);
+
+    if (!success) {
+        free(input->np);
+        printf("Error: Invalid file format %s\n", filename);
+        return BB_ERR_FILE_FORMAT;
+    }
+
+    return BB_SUCCESS;
+}
+
+bb_status_t bb_bem(const char* filename, bb_result_t* result) {
+    bb_input_t* input = &result->input;
+    *input = (bb_input_t){0}; // Initialize input structure
+
+    read_input_from_file(filename, input);
+
+    double** a;
+    double* rhs;
+
+    // -----------------------------------------------
 
     result->dim = input->nofc * NUMBER_ELEMENT_DOF;
 
@@ -128,9 +160,6 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
             a[i][j] = 0.0;
         }
     }
-
-    tor = 1E-8;
-    max_steps = 1000;
 
     rhs = (double*)malloc(sizeof(double) * result->dim);
     result->sol = (double*)malloc(sizeof(double) * result->dim);
@@ -152,11 +181,9 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
         rhs[i] = input->dble_para_fc[i][0];
     }
 
-    fclose(fp);
-
     printf("Linear system was generated.\n");
 
-    pbicgstab(result->dim, a, rhs, result->sol, tor, max_steps);
+    pbicgstab(result->dim, a, rhs, result->sol, TOR, MAX_STEPS);
 
     // printf("%d,%d\n",nint_para_fc,ndble_para_fc); 
 
