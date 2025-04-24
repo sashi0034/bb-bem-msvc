@@ -12,7 +12,7 @@
 static void pbicgstab(
     int batch,
     int dim,
-    double** A,
+    double** A /* [dim][dim] */,
     double** /* [dim][batch] */ rhs,
     double** /* [dim][batch] */ sol,
     double tor,
@@ -393,7 +393,7 @@ static int batch_lt(int batch, const double* x, double y) {
 static void pbicgstab(
     int batch,
     int dim,
-    double** A,
+    double** A /* [dim][dim] */,
     double** rhs /* [dim][batch] */,
     double** sol /* [dim][batch] */,
     double tor,
