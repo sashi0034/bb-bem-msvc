@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bb-bem-msvc", "bb-bem-msvc\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Viewer_s3d", "Viewer_s3d\Viewer_s3d.vcxproj", "{A39498F4-2354-4BB7-9C7D-E6F2A47622DD}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CudaSandbox", "CudaSandbox\CudaSandbox.vcxproj", "{2BC1B7E4-E141-DA36-F484-FD1D8392B8FA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +33,14 @@ Global
 		{A39498F4-2354-4BB7-9C7D-E6F2A47622DD}.Release|x64.Build.0 = Release|x64
 		{A39498F4-2354-4BB7-9C7D-E6F2A47622DD}.Release|x86.ActiveCfg = Release|x64
 		{A39498F4-2354-4BB7-9C7D-E6F2A47622DD}.Release|x86.Build.0 = Release|x64
+		{2BC1B7E4-E141-DA36-F484-FD1D8392B8FA}.Debug|x64.ActiveCfg = Debug|x64
+		{2BC1B7E4-E141-DA36-F484-FD1D8392B8FA}.Debug|x64.Build.0 = Debug|x64
+		{2BC1B7E4-E141-DA36-F484-FD1D8392B8FA}.Debug|x86.ActiveCfg = Debug|x64
+		{2BC1B7E4-E141-DA36-F484-FD1D8392B8FA}.Debug|x86.Build.0 = Debug|x64
+		{2BC1B7E4-E141-DA36-F484-FD1D8392B8FA}.Release|x64.ActiveCfg = Release|x64
+		{2BC1B7E4-E141-DA36-F484-FD1D8392B8FA}.Release|x64.Build.0 = Release|x64
+		{2BC1B7E4-E141-DA36-F484-FD1D8392B8FA}.Release|x86.ActiveCfg = Release|x64
+		{2BC1B7E4-E141-DA36-F484-FD1D8392B8FA}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
