@@ -61,7 +61,7 @@ typedef struct bb_input_t {
     int ndble_para_fc;
 
     /// @brief 各要素におけるパラメータのバッチ数
-    int para_batch; // TODO
+    int para_batch;
 
     /// @brief 節点座標 (サイズ: nond) 
     vector3_t* np;
