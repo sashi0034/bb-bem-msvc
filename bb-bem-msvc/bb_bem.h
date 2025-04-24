@@ -32,7 +32,14 @@ typedef struct vector3_t {
 /// 節点座標 `np` および構成節点番号 `face2node` を用いて各要素の幾何情報を参照する。
 /// 
 /// @remark Fortran の場合は 'real(8) function element_ij(i, j, nond, nofc, np, face2node)' として定義してください。
-BB_USER_FUNC double element_ij_(int* i, int* j, int* nond, int* nofc, vector3_t* np, int* face2node);
+BB_USER_FUNC double element_ij_(
+    int* i /** @in */,
+    int* j /** @in */,
+    int* nond /** @in */,
+    int* nofc /** @in */,
+    vector3_t* np /** @in */,
+    int* face2node /** @in */
+);
 
 // -----------------------------------------------
 
@@ -77,7 +84,7 @@ typedef struct bb_result_t {
     /// @brief 解ベクトルのサイズ (サイズ: nofc * 1)
     int dim;
 
-    /// @brief 解ベクトル (サイズ: batch * dim)
+    /// @brief 解ベクトル (サイズ: dim * batch)
     double** sol;
 } bb_result_t;
 
@@ -90,9 +97,9 @@ typedef enum {
 } bb_status_t;
 
 /// @brief BEM の計算を実行する関数
-BB_API bb_status_t bb_bem(const char* filename, bb_result_t* result);
+BB_API bb_status_t bb_bem(const char* filename /** @in */, bb_result_t* result /** @out */);
 
-BB_API void release_bb_result(bb_result_t* result);
+BB_API void release_bb_result(bb_result_t* result /** @in */);
 
 #ifdef __cplusplus
 }

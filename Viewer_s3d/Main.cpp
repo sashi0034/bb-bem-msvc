@@ -126,7 +126,7 @@ private:
 
 			centroid /= m_bb_result.input.nond_on_face;
 
-			const double sol = m_bb_result.sol[m_currentBatch][fc_id]; // TODO: インデックスの変更対応
+			const double sol = m_bb_result.sol[fc_id][m_currentBatch]; // TODO: インデックスの変更対応
 
 			m_sphereList.push_back({
 				.center = centroid * 10,
@@ -138,6 +138,8 @@ private:
 };
 
 void Main() {
+	Console.open();
+
 	Util::InitLivePPAddon();
 
 	Addon::Register<Viewer_3sd>(U"Viewer_3sd");

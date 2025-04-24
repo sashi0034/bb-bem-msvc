@@ -9,7 +9,15 @@
 
 #include "bb_bem.h"
 
-static void pbicgstab(int dim, double** A, double* rhs, double* sol, double tor, int max_steps);
+static void pbicgstab(
+    int batch,
+    int dim,
+    double** A,
+    double** /* [dim][batch] */ rhs,
+    double** /* [dim][batch] */ sol,
+    double tor,
+    int max_steps
+);
 
 #if !defined(BB_NO_MAIN)
 int main() {
@@ -178,15 +186,15 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
     double** A = (double**)allocate_matrix(result->dim, result->dim, sizeof(double));
     if (!A) return BB_ERR_MEMORY_ALLOC;
 
-    double** rhs = (double**)allocate_matrix(input->para_batch, result->dim, sizeof(double));
+    double** rhs = (double**)allocate_matrix(result->dim, input->para_batch, sizeof(double));
     if (!rhs) return BB_ERR_MEMORY_ALLOC;
 
-    result->sol = (double**)allocate_matrix(input->para_batch, result->dim, sizeof(double));
+    result->sol = (double**)allocate_matrix(result->dim, input->para_batch, sizeof(double));
     if (!result->sol) return BB_ERR_MEMORY_ALLOC;
 
-    for (int n = 0; n < input->para_batch; n++) {
-        for (int i = 0; i < result->dim; i++) {
-            result->sol[n][i] = 0.0;
+    for (int i = 0; i < result->dim; i++) {
+        for (int n = 0; n < input->para_batch; n++) {
+            result->sol[i][n] = 0.0;
         }
     }
 
@@ -199,17 +207,15 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
         }
     }
 
-    for (int n = 0; n < input->para_batch; n++) {
-        for (int i = 0; i < result->dim; i++) {
-            rhs[n][i] = input->dble_para_fc[n][i][0]; // TODO
+    for (int i = 0; i < result->dim; i++) {
+        for (int n = 0; n < input->para_batch; n++) {
+            rhs[i][n] = input->dble_para_fc[n][i][0]; // TODO
         }
     }
 
     printf("Linear system was generated.\n");
 
-    for (int i = 0; i < input->para_batch; ++i) {
-        pbicgstab(result->dim, A, rhs[i], result->sol[i], TOR, MAX_STEPS);
-    }
+    pbicgstab(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
 
     // printf("%d,%d\n",nint_para_fc,ndble_para_fc); 
 
@@ -254,38 +260,80 @@ void release_bb_result(bb_result_t* result) {
     result->sol = NULL;
 }
 
-// Matrix vector multiplication with a dense matrix: q=Ap 
-static void matvec_direct(int dim, double** mat, double* p, double* q) {
-    int row, col;
+// -----------------------------------------------
 
-    for (row = 0; row < dim; row++) {
+// Matrix vector multiplication with a dense matrix: q = A p 
+static void matvec(int dim, double** A, const double* p, double* q /** @out */) {
+    for (int row = 0; row < dim; row++) {
         q[row] = 0.0;
     }
 
-    for (row = 0; row < dim; row++) {
-        for (col = 0; col < dim; col++) {
-            q[row] = q[row] + mat[row][col] * p[col];
+    for (int row = 0; row < dim; row++) {
+        for (int col = 0; col < dim; col++) {
+            q[row] = q[row] + A[row][col] * p[col];
         }
     }
 }
 
-// -----------------------------------------------
-// Calculation of residual matrix with a dense matrix: r=b-Ax 
-static void residual_direct(int dim, double** mat, double* x, double* b, double* r) {
+static void batch_matvec(
+    int batch,
+    int dim,
+    double** mat /* [dim][dim] */,
+    double** P /* [dim][batch] */,
+    double** Q /** @out [dim][batch] */
+) {
+    for (int row = 0; row < dim; ++row) {
+        for (int n = 0; n < batch; ++n) {
+            Q[row][n] = 0.0;
+        }
+    }
+
+    for (int row = 0; row < dim; ++row) {
+        for (int col = 0; col < dim; ++col) {
+            for (int n = 0; n < batch; ++n) {
+                Q[row][n] += mat[row][col] * P[col][n];
+            }
+        }
+    }
+}
+
+// Calculation of residual matrix with a dense matrix: r = b - A x 
+static void residual(int dim, double** A, const double* x, const double* b, double* r /** @out */) {
     for (int row = 0; row < dim; row++) {
         r[row] = b[row];
     }
 
     for (int row = 0; row < dim; row++) {
         for (int col = 0; col < dim; col++) {
-            r[row] = r[row] - mat[row][col] * x[col];
+            r[row] = r[row] - A[row][col] * x[col];
         }
     }
 }
 
-// -----------------------------------------------
-// Calculation of dot product 
-static double dot_product(int dim, double* x, double* y) {
+static void batch_residual(
+    int batch,
+    int dim,
+    double** A /* [dim][dim] */,
+    double** X /* [dim][batch] */,
+    double** B /* [dim][batch] */,
+    double** R /** @out [dim][batch] */
+) {
+    for (int row = 0; row < dim; ++row) {
+        for (int n = 0; n < batch; ++n) {
+            R[row][n] = B[row][n];
+        }
+    }
+
+    for (int row = 0; row < dim; ++row) {
+        for (int col = 0; col < dim; ++col) {
+            for (int n = 0; n < batch; ++n) {
+                R[row][n] -= A[row][col] * X[col][n];
+            }
+        }
+    }
+}
+
+static double dot_product(int dim, const double* x, const double* y) {
     double sum = 0;
     for (int i = 0; i < dim; i++) {
         sum = sum + x[i] * y[i];
@@ -294,95 +342,257 @@ static double dot_product(int dim, double* x, double* y) {
     return sum;
 }
 
+static void batch_dot_product(
+    int batch,
+    int dim,
+    double** X /* [dim][batch] */ ,
+    double** Y /* [dim][batch] */ ,
+    double* out /** @out */
+) {
+    for (int n = 0; n < batch; ++n) {
+        out[n] = 0.0;
+    }
+
+    for (int i = 0; i < dim; ++i) {
+        for (int n = 0; n < batch; ++n) {
+            out[n] += X[i][n] * Y[i][n];
+        }
+    }
+}
+
+static void batch_sqrt(int batch, const double* x, double* out /** @out */) {
+    for (int n = 0; n < batch; ++n) {
+        out[n] = sqrt(x[n]);
+    }
+}
+
+// x * y
+static void batch_mul(int batch, const double* x, const double* y, double* out /** @out */) {
+    for (int n = 0; n < batch; ++n) {
+        out[n] = x[n] * y[n];
+    }
+}
+
+// x / y
+static void batch_div(int batch, const double* x, const double* y, double* out /** @out */) {
+    for (int n = 0; n < batch; ++n) {
+        out[n] = x[n] / y[n];
+    }
+}
+
+// x < y
+static int batch_lt(int batch, const double* x, double y) {
+    for (int n = 0; n < batch; ++n) {
+        if (x[n] >= y) return 0;
+    }
+
+    return 1;
+}
+
 // -----------------------------------------------
-static void pbicgstab(int dim, double** A, double* rhs, double* sol, double tor, int max_steps) {
-    double *r, *shdw, *p, *t, *ap, *kp, *akp, *kt, *akt;
-    double alpha, beta, zeta, nom, den, nomold, rnorm, bnorm;
-
-    // Allocation of arraies 
-    r = (double*)malloc(sizeof(double) * dim);
-    shdw = (double*)malloc(sizeof(double) * dim);
-    p = (double*)malloc(sizeof(double) * dim);
-    t = (double*)malloc(sizeof(double) * dim);
-    ap = (double*)malloc(sizeof(double) * dim);
-    kp = (double*)malloc(sizeof(double) * dim);
-    akp = (double*)malloc(sizeof(double) * dim);
-    kt = (double*)malloc(sizeof(double) * dim);
-    akt = (double*)malloc(sizeof(double) * dim);
-
+static void pbicgstab(
+    int batch,
+    int dim,
+    double** A,
+    double** rhs /* [dim][batch] */,
+    double** sol /* [dim][batch] */,
+    double tor,
+    int max_steps
+) {
     // Initialization
-    for (int i = 0; i < dim; i++) { p[i] = 0.0; }
-    alpha = 0.0;
-    beta = 0.0;
-    zeta = 0.0;
 
-    bnorm = sqrt(dot_product(dim, rhs, rhs));
+    double** P = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: P
+    for (int i = 0; i < dim; i++) {
+        for (int n = 0; n < batch; n++) {
+            P[i][n] = 0.0;
+        }
+    }
 
-    // Initial residual   
-    residual_direct(dim, A, sol, rhs, r);
+    double* bnorm = (double*)malloc(sizeof(double) * batch); // <-- Allocation: bnorm
+    // bnorm = sqrt(dot_product(dim, rhs, rhs));
+    batch_dot_product(batch, dim, rhs, rhs, bnorm); // dot_product(dim, rhs, rhs)
+    batch_sqrt(batch, bnorm, bnorm); // sqrt(dot_product(dim, rhs, rhs))
 
-    // Set shadow vector 
-    for (int i = 0; i < dim; i++) { shdw[i] = r[i]; }
+    // Initial residual
+    double** R = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: R
+    // residual(dim, A, sol, rhs, r);
+    batch_residual(batch, dim, A, sol, rhs, R);
 
-    rnorm = sqrt(dot_product(dim, r, r));
-    printf("Original relative residual norm = %20.14e\n", rnorm / bnorm);
+    // Set shadow vector
+    double** shdw = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: shdw
+    // for (int i = 0; i < dim; i++) { shdw[i] = r[i]; }
+    for (int i = 0; i < dim; i++) {
+        for (int n = 0; n < batch; n++) {
+            shdw[i][n] = R[i][n];
+        }
+    }
 
-    if (rnorm / bnorm < tor) { return; }
+    double* rnorm = malloc(sizeof(double) * batch); // <-- Allocation: rnorm
+    // rnorm = sqrt(dot_product(dim, r, r));
+    batch_dot_product(batch, dim, R, R, rnorm);
+    batch_sqrt(batch, rnorm, rnorm);
+
+    printf("Original relative residual norm [0] = %20.14e\n", rnorm[0] / bnorm[0]);
+
+    // Allocation of arrays
+    double** t = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: t 
+    double** ap = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: ap 
+    double** akp = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: akp  
+    double** kt = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: kt 
+    double** akt = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: akt 
+    double** kp = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: kp
+
+    double* nom = malloc(sizeof(double) * batch); // <-- Allocation: nom
+    double* nomold = malloc(sizeof(double) * batch); // <-- Allocation: nomold
+    double* den = malloc(sizeof(double) * batch); // <-- Allocation: den
+    double* alpha = malloc(sizeof(double) * batch); // <-- Allocation: alpha
+    double* beta = malloc(sizeof(double) * batch); // <-- Allocation: beta
+    double* zeta = malloc(sizeof(double) * batch); // <-- Allocation: zeta
+
+    double* tmp = malloc(sizeof(double) * batch); // <-- Allocation: tmp
+
+    // if (rnorm / bnorm < tor) {  goto release; }
+    batch_div(batch, rnorm, bnorm, tmp);
+    if (batch_lt(batch, tmp, tor)) { goto release; }
+
+    for (int n = 0; n < batch; ++n) {
+        alpha[n] = 0.0;
+        beta[n] = 0.0;
+        zeta[n] = 0.0;
+    }
 
     // BiCGSTAB iteration 
     for (int step = 1; step <= max_steps; step++) {
-        matvec_direct(dim, A, p, ap);
+        // matvec(dim, A, p, ap);
+        batch_matvec(batch, dim, A, P, ap);
 
-        for (int i = 0; i < dim; i++) { p[i] = r[i] + beta * (p[i] - zeta * ap[i]); }
-
-        // No preconditioning 
-        for (int i = 0; i < dim; i++) { kp[i] = p[i]; }
-
-        matvec_direct(dim, A, kp, akp);
-
-        nom = dot_product(dim, shdw, r);
-        den = dot_product(dim, shdw, akp);
-        alpha = nom / den;
-        nomold = nom;
-
-        // printf("alpha= %lf",alpha); 
-
-        for (int i = 0; i < dim; i++) { t[i] = r[i] - alpha * akp[i]; }
+        // for (int i = 0; i < dim; i++) { p[i] = r[i] + beta * (p[i] - zeta * ap[i]); }
+        for (int i = 0; i < dim; i++) {
+            for (int n = 0; n < batch; n++) {
+                P[i][n] = R[i][n] + beta[n] * (P[i][n] - zeta[n] * ap[i][n]);
+            }
+        }
 
         // No preconditioning 
-        for (int i = 0; i < dim; i++) { kt[i] = t[i]; }
 
-        matvec_direct(dim, A, kt, akt);
+        // for (int i = 0; i < dim; i++) { kp[i] = p[i]; }
+        for (int i = 0; i < dim; i++) {
+            for (int n = 0; n < batch; n++) {
+                kp[i][n] = P[i][n];
+            }
+        }
 
-        nom = dot_product(dim, akt, t);
-        den = dot_product(dim, akt, akt);
-        zeta = nom / den;
+        // matvec(dim, A, kp, akp);
+        batch_matvec(batch, dim, A, kp, akp);
 
-        for (int i = 0; i < dim; i++) { sol[i] = sol[i] + alpha * kp[i] + zeta * kt[i]; }
-        for (int i = 0; i < dim; i++) { r[i] = t[i] - zeta * akt[i]; }
-        beta = alpha / zeta * dot_product(dim, shdw, r) / nomold;
+        // nom = dot_product(dim, shdw, r);
+        batch_dot_product(batch, dim, shdw, R, nom);
 
-        rnorm = sqrt(dot_product(dim, r, r));
-        printf("  Step %d relative residual norm = %20.14e \n", step, rnorm / bnorm);
+        // den = dot_product(dim, shdw, akp);
+        batch_dot_product(batch, dim, shdw, akp, den);
 
-        if (rnorm / bnorm < tor) { break; }
+        // alpha = nom / den;
+        batch_div(batch, nom, den, alpha);
+
+        // nomold = nom;
+        for (int i = 0; i < batch; i++) { nomold[i] = nom[i]; }
+
+        // for (int i = 0; i < dim; i++) { t[i] = r[i] - alpha * akp[i]; }
+        for (int i = 0; i < dim; i++) {
+            for (int n = 0; n < batch; n++) {
+                t[i][n] = R[i][n] - alpha[n] * akp[i][n];
+            }
+        }
+
+        // No preconditioning 
+        // for (int i = 0; i < dim; i++) { kt[i] = t[i]; }
+        for (int i = 0; i < dim; i++) {
+            for (int n = 0; n < batch; n++) {
+                kt[i][n] = t[i][n];
+            }
+        }
+
+        // matvec(dim, A, kt, akt);
+        batch_matvec(batch, dim, A, kt, akt);
+
+        // nom = dot_product(dim, akt, t);
+        batch_dot_product(batch, dim, akt, t, nom);
+
+        // den = dot_product(dim, akt, akt);
+        batch_dot_product(batch, dim, akt, akt, den);
+
+        // zeta = nom / den;
+        batch_div(batch, nom, den, zeta);
+
+        // for (int i = 0; i < dim; i++) { sol[i] = sol[i] + alpha * kp[i] + zeta * kt[i]; }
+        for (int i = 0; i < dim; i++) {
+            for (int n = 0; n < batch; n++) {
+                sol[i][n] += alpha[n] * kp[i][n] + zeta[n] * kt[i][n];
+            }
+        }
+
+        // for (int i = 0; i < dim; i++) { r[i] = t[i] - zeta * akt[i]; }
+        for (int i = 0; i < dim; i++) {
+            for (int n = 0; n < batch; n++) {
+                R[i][n] = t[i][n] - zeta[n] * akt[i][n];
+            }
+        }
+
+        // beta = alpha / zeta * dot_product(dim, shdw, r) / nomold;
+        batch_dot_product(batch, dim, shdw, R, beta); // dot_product(dim, shdw, r)
+        batch_mul(batch, beta, alpha, beta); // alpha * dot_product(dim, shdw, r)
+        batch_div(batch, beta, zeta, beta); // alpha / zeta * dot_product(dim, shdw, r)
+        batch_div(batch, beta, nomold, beta); // alpha / zeta * dot_product(dim, shdw, r) / nomold
+
+        // rnorm = sqrt(dot_product(dim, r, r));
+        batch_dot_product(batch, dim, R, R, rnorm); // dot_product(dim, r, r)
+        batch_sqrt(batch, rnorm, rnorm); // sqrt(dot_product(dim, r, r))
+
+        printf("  Step %d relative residual norm [0] = %20.14e \n", step, rnorm[0] / bnorm[0]);
+
+        // if (rnorm / bnorm < tor) { break; }
+        batch_div(batch, rnorm, bnorm, tmp);
+        if (batch_lt(batch, tmp, tor)) { break; }
     }
     // -----------------------------------------------
 
     // Confirmation of residual 
 
-    residual_direct(dim, A, sol, rhs, r);
-    rnorm = sqrt(dot_product(dim, r, r));
+    // residual(dim, A, sol, rhs, r);
+    batch_residual(batch, dim, A, sol, rhs, R);
 
-    printf("Relative residual norm = %20.14e \n", rnorm / bnorm);
+    // rnorm = sqrt(dot_product(dim, r, r));
+    batch_dot_product(batch, dim, R, R, rnorm); // dot_product(dim, r, r)
+    batch_sqrt(batch, rnorm, rnorm); // sqrt(dot_product(dim, r, r))
 
-    free(r);
-    free(shdw);
-    free(p);
-    free(t);
-    free(ap);
-    free(kp);
-    free(akp);
-    free(kt);
-    free(akt);
+    printf("Relative residual norm [0] = %20.14e \n", rnorm[0] / bnorm[0]);
+
+    // -----------------------------------------------
+
+release:
+    if (tmp) free(tmp);
+
+    if (zeta) free(zeta);
+    if (beta) free(beta);
+    if (alpha) free(alpha);
+    if (den) free(den);
+    if (nomold) free(nomold);
+    if (nom) free(nom);
+
+    if (kp) release_matrix(kp);
+    if (akt) release_matrix(akt);
+    if (kt) release_matrix(kt);
+    if (akp) release_matrix(akp);
+    if (ap) release_matrix(ap);
+    if (t) release_matrix(t);
+
+    if (rnorm) free(rnorm);
+
+    if (shdw) release_matrix(shdw);
+
+    if (R) release_matrix(R);
+
+    if (bnorm) free(bnorm);
+
+    if (P) release_matrix(P);
 }
