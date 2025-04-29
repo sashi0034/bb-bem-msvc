@@ -42,10 +42,12 @@ struct Viewer_3sd : IAddon {
 	// 前後移動: [W][S], 左右移動: [A][D], 上下移動: [E][X], 注視点移動: アローキー, 加速: [Shift][Ctrl]
 	DebugCamera3D m_camera{m_renderTexture.size(), 30_deg, Vec3{10, 16, -32}};
 
-	bb_result_t m_bb_result{};
+	bb_result_t m_bb_naive{};
+	bb_result_t m_bb_cuda{};
 
 	Array<SphereData> m_sphereList{};
 
+	bb_compute_t m_currentCompute{};
 	int m_currentBatch{};
 
 	bool init() override {
@@ -54,18 +56,21 @@ struct Viewer_3sd : IAddon {
 		// ウインドウとシーンを 1280x720 にリサイズ
 		Window::Resize(1280, 720);
 
-		if (bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA, &m_bb_result) == BB_OK) {
-			makeSphereList();
+		if (bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_NAIVE, &m_bb_naive) == BB_OK &&
+			bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK
+		) {
+			rebuildSphereList();
 		}
 		else {
-			std::cerr << "Error: Cannot open file input.txt" << std::endl;
+			std::cerr << "Error: Boundary element analysis failed: input.txt" << std::endl;
 		}
 
 		return true;
 	}
 
 	~Viewer_3sd() override {
-		release_bb_result(&m_bb_result);
+		release_bb_result(&m_bb_naive);
+		release_bb_result(&m_bb_cuda);
 	}
 
 	bool update() override {
@@ -100,22 +105,36 @@ struct Viewer_3sd : IAddon {
 			Shader::LinearToScreen(m_renderTexture);
 		}
 
-		if (SimpleGUI::Button(U"Batch {}"_fmt(m_currentBatch), Vec2{20, 20})) {
-			m_currentBatch = (m_currentBatch + 1) % m_bb_result.input.para_batch;
-			makeSphereList();
+		if (SimpleGUI::Button(U"{}"_fmt(getComputeName()), Vec2{20, 20})) {
+			m_currentCompute = static_cast<bb_compute_t>((m_currentCompute + 1) % (BB_COMPUTE_CUDA + 1));
+			rebuildSphereList();
+		}
+
+		if (SimpleGUI::Button(U"Batch {}"_fmt(m_currentBatch), Vec2{20, 60})) {
+			m_currentBatch = (m_currentBatch + 1) % m_bb_naive.input.para_batch;
+			rebuildSphereList();
 		}
 
 		return true;
 	}
 
 private:
-	void makeSphereList() {
+	const bb_result_t& get_bb_result() const {
+		return m_currentCompute == BB_COMPUTE_NAIVE ? m_bb_naive : m_bb_cuda;
+	}
+
+	String getComputeName() const {
+		return m_currentCompute == BB_COMPUTE_NAIVE ? U"Naive" : U"CUDA";
+	}
+
+	void rebuildSphereList() {
 		m_sphereList.clear();
-		const auto& bb_input = m_bb_result.input;
+		const auto& bb_result = get_bb_result();
+		const auto& bb_input = bb_result.input;
 		for (int fc_id = 0; fc_id < bb_input.nofc; ++fc_id) {
 			// 各要素の重心を計算
 			Vec3 centroid{0.0, 0.0, 0.0};
-			for (int nd_id = 0; nd_id < m_bb_result.input.nond_on_face; nd_id++) {
+			for (int nd_id = 0; nd_id < bb_result.input.nond_on_face; nd_id++) {
 				centroid += Vec3{
 					bb_input.np[bb_input.face2node[fc_id][nd_id]].x,
 					bb_input.np[bb_input.face2node[fc_id][nd_id]].y,
@@ -123,9 +142,9 @@ private:
 				};
 			}
 
-			centroid /= m_bb_result.input.nond_on_face;
+			centroid /= bb_result.input.nond_on_face;
 
-			const double sol = m_bb_result.sol[fc_id][m_currentBatch]; // TODO: インデックスの変更対応
+			const double sol = bb_result.sol[fc_id][m_currentBatch]; // TODO: インデックスの変更対応
 
 			m_sphereList.push_back({
 				.center = centroid * 10,
