@@ -85,6 +85,15 @@ __global__ void kernel_div(int batch, const double* x, const double* y, double* 
     if (n < batch) out[n] = x[n] / y[n];
 }
 
+// x < y
+static int batch_lt(int batch, const double* x, double y) {
+    for (int n = 0; n < batch; ++n) {
+        if (x[n] >= y) return 0;
+    }
+
+    return 1;
+}
+
 // Kernel: p = r + beta * (p - zeta * Ap)
 __global__ void kernel_update_p(int dim, int batch,
                                 double* __restrict__ out,
@@ -207,20 +216,18 @@ void bicgstab_cuda(
     kernel_dot_product<<<blocks1d, threads1d>>>(dim, batch, d_r, d_r, d_rnorm);
     kernel_sqrt<<<blocks1d, threads1d>>>(batch, d_rnorm, d_rnorm);
 
-    double h_bnorm0, h_rnorm0;
-    cudaMemcpy(&h_bnorm0, d_bnorm + 0, sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(&h_rnorm0, d_rnorm + 0, sizeof(double), cudaMemcpyDeviceToHost);
-    printf("Original rel res [0] = %20.14e\n", h_rnorm0 / h_bnorm0);
-
     cudaMemset(d_p, 0, dim_batch_bytes);
     cudaMemset(d_alpha, 0, batch_bytes);
     cudaMemset(d_beta, 0, batch_bytes);
     cudaMemset(d_zeta, 0, batch_bytes);
 
-    // early exit
+    // if (rnorm / bnorm < tor) { break; } // early exit
+    double* tmp = static_cast<double*>(malloc(sizeof(double) * batch)); // <-- Allocation: tmp
     kernel_div<<<blocks1d, threads1d>>>(batch, d_rnorm, d_bnorm, d_tmp);
-    cudaMemcpy(&h_rnorm0, d_tmp + 0, sizeof(double), cudaMemcpyDeviceToHost);
-    if (h_rnorm0 < tor) goto finalize; // TODO
+
+    cudaMemcpy(tmp, d_tmp, batch_bytes, cudaMemcpyDeviceToHost);
+    printf("Original rel res [0] = %20.14e\n", tmp[0]);
+    if (batch_lt(batch, tmp, tor)) { goto finalize; }
 
     // BiCGSTAB iteration 
     for (int step = 1; step <= max_steps; ++step) {
@@ -284,9 +291,10 @@ void bicgstab_cuda(
         // if (rnorm / bnorm < tor) { break; }
         kernel_div<<<blocks1d, threads1d>>>(batch, d_rnorm, d_bnorm, d_tmp); // TODO
 
-        cudaMemcpy(&h_rnorm0, d_tmp + 0, sizeof(double), cudaMemcpyDeviceToHost);
-        printf("  Step %d rel res [0] = %20.14e\n", step, h_rnorm0);
-        if (h_rnorm0 < tor) break;
+        // if (rnorm / bnorm < tor) { break; }
+        cudaMemcpy(tmp, d_tmp, batch_bytes, cudaMemcpyDeviceToHost);
+        printf("  Step %d rel res [0] = %20.14e\n", step, tmp[0]);
+        if (batch_lt(batch, tmp, tor)) { goto finalize; }
     }
 
 finalize:
@@ -313,4 +321,6 @@ finalize:
     cudaFree(d_beta);
     cudaFree(d_zeta);
     cudaFree(d_tmp);
+
+    free(tmp);
 }

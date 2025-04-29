@@ -199,8 +199,6 @@ void bicgstab_naive(
     batch_dot_product(batch, dim, r, r, rnorm);
     batch_sqrt(batch, rnorm, rnorm);
 
-    printf("Original relative residual norm [0] = %20.14e\n", rnorm[0] / bnorm[0]);
-
     // Allocation of arrays
     double** t = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: t 
     double** Ap = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: Ap 
@@ -220,6 +218,7 @@ void bicgstab_naive(
 
     // if (rnorm / bnorm < tor) {  goto release; }
     batch_div(batch, rnorm, bnorm, tmp);
+    printf("Original relative residual norm [0] = %20.14e\n", tmp[0]);
     if (batch_lt(batch, tmp, tor)) { goto release; }
 
     for (int n = 0; n < batch; ++n) {
@@ -315,10 +314,9 @@ void bicgstab_naive(
         batch_dot_product(batch, dim, r, r, rnorm); // dot_product(dim, r, r)
         batch_sqrt(batch, rnorm, rnorm); // sqrt(dot_product(dim, r, r))
 
-        printf("  Step %d relative residual norm [0] = %20.14e \n", step, rnorm[0] / bnorm[0]);
-
         // if (rnorm / bnorm < tor) { break; }
         batch_div(batch, rnorm, bnorm, tmp);
+        printf("  Step %d relative residual norm [0] = %20.14e \n", step, tmp[0]);
         if (batch_lt(batch, tmp, tor)) { break; }
     }
     // -----------------------------------------------
