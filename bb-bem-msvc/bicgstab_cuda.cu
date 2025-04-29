@@ -16,12 +16,12 @@
 __global__ void kernel_matvec(
     int dim,
     int batch,
-    const double* __restrict__ mat,
-    const double* __restrict__ P,
-    double* __restrict__ Q
+    const double* __restrict__ mat /* [dim * dim] */,
+    const double* __restrict__ P /* [dim * batch] */,
+    double* __restrict__ Q /* out [dim * batch] */
 ) {
-    int row = blockIdx.x * blockDim.x + threadIdx.x;
-    int n = blockIdx.y * blockDim.y + threadIdx.y;
+    const int row = blockIdx.x * blockDim.x + threadIdx.x;
+    const int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
         double sum = 0.0;
         const double* Arow = mat + row * dim;
@@ -29,18 +29,22 @@ __global__ void kernel_matvec(
         for (int col = 0; col < dim; ++col) {
             sum += Arow[col] * Pcol[col * batch];
         }
+
         Q[row * batch + n] = sum;
     }
 }
 
 // Kernel: R = B - A * X
-__global__ void kernel_residual(int dim, int batch,
-                                const double* __restrict__ A,
-                                const double* __restrict__ X,
-                                const double* __restrict__ B,
-                                double* __restrict__ R) {
-    int row = blockIdx.x * blockDim.x + threadIdx.x;
-    int n = blockIdx.y * blockDim.y + threadIdx.y;
+__global__ void kernel_residual(
+    int dim,
+    int batch,
+    const double* __restrict__ A /* [dim * dim] */,
+    const double* __restrict__ X /* [dim * batch] */,
+    const double* __restrict__ B /* [dim * batch] */,
+    double* __restrict__ R /* out [dim * batch] */
+) {
+    const int row = blockIdx.x * blockDim.x + threadIdx.x;
+    const int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
         double val = B[row * batch + n];
         const double* Arow = A + row * dim;
@@ -48,16 +52,20 @@ __global__ void kernel_residual(int dim, int batch,
         for (int col = 0; col < dim; ++col) {
             val -= Arow[col] * Xcol[col * batch];
         }
+
         R[row * batch + n] = val;
     }
 }
 
 // Kernel: out[n] = dot( X[:,n], Y[:,n] )
-__global__ void kernel_dot_product(int dim, int batch,
-                                   const double* __restrict__ X,
-                                   const double* __restrict__ Y,
-                                   double* __restrict__ out) {
-    int n = blockIdx.x * blockDim.x + threadIdx.x;
+__global__ void kernel_dot_product(
+    int dim,
+    int batch,
+    const double* __restrict__ X /* [dim * batch] */,
+    const double* __restrict__ Y /* [dim * batch] */,
+    double* __restrict__ out /* out [batch] */
+) {
+    const int n = blockIdx.x * blockDim.x + threadIdx.x;
     if (n < batch) {
         double sum = 0.0;
         const double* Xcol = X + n;
@@ -65,23 +73,38 @@ __global__ void kernel_dot_product(int dim, int batch,
         for (int i = 0; i < dim; ++i) {
             sum += Xcol[i * batch] * Ycol[i * batch];
         }
+
         out[n] = sum;
     }
 }
 
 // Elementwise kernels
-__global__ void kernel_sqrt(int batch, const double* x, double* out) {
-    int n = blockIdx.x * blockDim.x + threadIdx.x;
+__global__ void kernel_sqrt(
+    int batch,
+    const double* x /* [batch] */,
+    double* out /* out [batch] */
+) {
+    const int n = blockIdx.x * blockDim.x + threadIdx.x;
     if (n < batch) out[n] = sqrt(x[n]);
 }
 
-__global__ void kernel_mul(int batch, const double* x, const double* y, double* out) {
-    int n = blockIdx.x * blockDim.x + threadIdx.x;
+__global__ void kernel_mul(
+    int batch,
+    const double* x /* [batch] */,
+    const double* y /* [batch] */,
+    double* out /* out [batch] */
+) {
+    const int n = blockIdx.x * blockDim.x + threadIdx.x;
     if (n < batch) out[n] = x[n] * y[n];
 }
 
-__global__ void kernel_div(int batch, const double* x, const double* y, double* out) {
-    int n = blockIdx.x * blockDim.x + threadIdx.x;
+__global__ void kernel_div(
+    int batch,
+    const double* x /* [batch] */,
+    const double* y /* [batch] */,
+    double* out /* out [batch] */
+) {
+    const int n = blockIdx.x * blockDim.x + threadIdx.x;
     if (n < batch) out[n] = x[n] / y[n];
 }
 
@@ -95,27 +118,33 @@ static int batch_lt(int batch, const double* x, double y) {
 }
 
 // Kernel: p = r + beta * (p - zeta * Ap)
-__global__ void kernel_update_p(int dim, int batch,
-                                double* __restrict__ out,
-                                const double* __restrict__ r,
-                                const double* __restrict__ p,
-                                const double* __restrict__ Ap,
-                                const double* __restrict__ beta,
-                                const double* __restrict__ zeta) {
+__global__ void kernel_update_p(
+    int dim,
+    int batch,
+    double* __restrict__ out /* out [batch] */,
+    const double* __restrict__ r /* [dim * batch] */,
+    const double* __restrict__ p /* [dim * batch] */,
+    const double* __restrict__ Ap /* [dim * batch] */,
+    const double* __restrict__ beta /* [batch] */,
+    const double* __restrict__ zeta /* [batch] */
+) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        int idx = row * batch + n;
+        const int idx = row * batch + n;
         out[idx] = r[idx] + beta[n] * (p[idx] - zeta[n] * Ap[idx]);
     }
 }
 
 // Kernel: t = r - alpha * Akp
-__global__ void kernel_update_t(int dim, int batch,
-                                const double* __restrict__ r,
-                                const double* __restrict__ Akp,
-                                const double* __restrict__ alpha,
-                                double* __restrict__ t) {
+__global__ void kernel_update_t(
+    int dim,
+    int batch,
+    const double* __restrict__ r /* [dim * batch] */,
+    const double* __restrict__ Akp /* [dim * batch] */,
+    const double* __restrict__ alpha /* [batch] */,
+    double* __restrict__ t /* out [dim * batch] */
+) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
@@ -125,12 +154,15 @@ __global__ void kernel_update_t(int dim, int batch,
 }
 
 // Kernel: x += alpha * kp + zeta * kt
-__global__ void kernel_update_x(int dim, int batch,
-                                double* __restrict__ x,
-                                const double* __restrict__ kp,
-                                const double* __restrict__ kt,
-                                const double* __restrict__ alpha,
-                                const double* __restrict__ zeta) {
+__global__ void kernel_update_x(
+    int dim,
+    int batch,
+    double* __restrict__ x /* inout [dim * batch] */,
+    const double* __restrict__ kp /* [dim * batch] */,
+    const double* __restrict__ kt /* [dim * batch] */,
+    const double* __restrict__ alpha /* [batch] */,
+    const double* __restrict__ zeta /* [batch] */
+) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
@@ -140,11 +172,14 @@ __global__ void kernel_update_x(int dim, int batch,
 }
 
 // Kernel: r = t - zeta * Akt
-__global__ void kernel_update_r(int dim, int batch,
-                                const double* __restrict__ t,
-                                const double* __restrict__ Akt,
-                                const double* __restrict__ zeta,
-                                double* __restrict__ r) {
+__global__ void kernel_update_r(
+    int dim,
+    int batch,
+    const double* __restrict__ t /* [dim * batch] */,
+    const double* __restrict__ Akt /* [dim * batch] */,
+    const double* __restrict__ zeta /* [batch] */,
+    double* __restrict__ r /* out [dim * batch] */
+) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
@@ -221,12 +256,12 @@ void bicgstab_cuda(
     cudaMemset(d_beta, 0, batch_bytes);
     cudaMemset(d_zeta, 0, batch_bytes);
 
-    // if (rnorm / bnorm < tor) { break; } // early exit
     double* tmp = static_cast<double*>(malloc(sizeof(double) * batch)); // <-- Allocation: tmp
-    kernel_div<<<blocks1d, threads1d>>>(batch, d_rnorm, d_bnorm, d_tmp);
 
+    // if (rnorm / bnorm < tor) { goto finalize; } // early exit
+    kernel_div<<<blocks1d, threads1d>>>(batch, d_rnorm, d_bnorm, d_tmp);
     cudaMemcpy(tmp, d_tmp, batch_bytes, cudaMemcpyDeviceToHost);
-    printf("Original rel res [0] = %20.14e\n", tmp[0]);
+    printf("Original relative residual norm [0] = %20.14e\n", tmp[0]);
     if (batch_lt(batch, tmp, tor)) { goto finalize; }
 
     // BiCGSTAB iteration 
@@ -289,12 +324,10 @@ void bicgstab_cuda(
         kernel_sqrt<<<blocks1d, threads1d>>>(batch, d_rnorm, d_rnorm); // sqrt(dot_product(dim, r, r))
 
         // if (rnorm / bnorm < tor) { break; }
-        kernel_div<<<blocks1d, threads1d>>>(batch, d_rnorm, d_bnorm, d_tmp); // TODO
-
-        // if (rnorm / bnorm < tor) { break; }
+        kernel_div<<<blocks1d, threads1d>>>(batch, d_rnorm, d_bnorm, d_tmp);
         cudaMemcpy(tmp, d_tmp, batch_bytes, cudaMemcpyDeviceToHost);
-        printf("  Step %d rel res [0] = %20.14e\n", step, tmp[0]);
-        if (batch_lt(batch, tmp, tor)) { goto finalize; }
+        printf("  Step %d relative residual norm [0] = %20.14e\n", step, tmp[0]);
+        if (batch_lt(batch, tmp, tor)) { break; }
     }
 
 finalize:

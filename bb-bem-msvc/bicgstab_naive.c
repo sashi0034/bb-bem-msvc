@@ -216,10 +216,10 @@ void bicgstab_naive(
 
     double* tmp = malloc(sizeof(double) * batch); // <-- Allocation: tmp
 
-    // if (rnorm / bnorm < tor) {  goto release; }
+    // if (rnorm / bnorm < tor) {  goto finalize; }
     batch_div(batch, rnorm, bnorm, tmp);
     printf("Original relative residual norm [0] = %20.14e\n", tmp[0]);
-    if (batch_lt(batch, tmp, tor)) { goto release; }
+    if (batch_lt(batch, tmp, tor)) { goto finalize; }
 
     for (int n = 0; n < batch; ++n) {
         alpha[n] = 0.0;
@@ -334,7 +334,7 @@ void bicgstab_naive(
 
     // -----------------------------------------------
 
-release:
+finalize:
     if (tmp) free(tmp);
 
     if (zeta) free(zeta);
