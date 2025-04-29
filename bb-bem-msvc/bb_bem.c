@@ -166,7 +166,7 @@ fail:
     }
 
 bad_alloc:
-    if (input->np) {
+    if (!input->np) {
         fclose(fp);
         printf("Error: Out of memory while reading %s\n", filename);
         return BB_ERR_FILE_OPEN;
@@ -180,7 +180,10 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     bb_input_t* input = &result->input;
     *input = (bb_input_t){0}; // Initialize input structure
 
-    read_input_from_file(filename, input);
+    const bb_status_t input_status = read_input_from_file(filename, input);
+    if (input_status != BB_OK) {
+        return input_status;
+    }
 
     // -----------------------------------------------
 
