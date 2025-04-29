@@ -29,7 +29,6 @@ struct Viewer_3sd : IAddon {
 	// 背景色 (リニアレンダリング用なので removeSRGBCurve() で sRGB カーブを除去）
 	ColorF m_backgroundColor = ColorF{0.5}.removeSRGBCurve();
 
-	// UV チェック用テクスチャ (ミップマップ使用。リニアレンダリング時に正しく扱われるよう、sRGB テクスチャであると明示）
 	RenderTexture m_planeTexture{getPlaneTexture()};
 
 	// 3D シーンを描く、マルチサンプリング対応レンダーテクスチャ
@@ -55,7 +54,7 @@ struct Viewer_3sd : IAddon {
 		// ウインドウとシーンを 1280x720 にリサイズ
 		Window::Resize(1280, 720);
 
-		if (bb_bem("../../bb-bem-msvc/input.txt", &m_bb_result) == BB_SUCCESS) {
+		if (bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA, &m_bb_result) == BB_OK) {
 			makeSphereList();
 		}
 		else {

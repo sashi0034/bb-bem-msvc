@@ -10,6 +10,7 @@
 #include "bb_bem.h"
 
 #include "bicgstab_naive.h"
+#include "bicgstab_cuda.h"
 
 #if !defined(BB_NO_MAIN)
 int main() {
@@ -35,12 +36,6 @@ int main() {
 
 // -----------------------------------------------
 
-#define NUMBER_ELEMENT_DOF  1;
-
-#define TOR 1e-8 // Tolerance for convergence
-
-#define MAX_STEPS 1000 // Maximum number of iterations
-
 static void** allocate_matrix(size_t rows, size_t cols, size_t elem_size) {
     void** array = (void**)malloc(sizeof(void*) * rows);
     if (!array) return NULL;
@@ -62,6 +57,22 @@ static void release_matrix(void** matrix) {
     if (matrix && matrix[0]) free(matrix[0]);
     if (matrix) free(matrix);
 }
+
+static void transpose_double_matrix(size_t rows, size_t cols, double** mat, double** mat_T) {
+    for (size_t row = 0; row < rows; ++row) {
+        for (size_t col = 0; col < cols; ++col) {
+            mat_T[col][row] = mat[row][col];
+        }
+    }
+}
+
+// -----------------------------------------------
+
+#define NUMBER_ELEMENT_DOF  1;
+
+#define TOR 1e-8 // Tolerance for convergence
+
+#define MAX_STEPS 1000 // Maximum number of iterations
 
 static bb_status_t read_input_from_file(const char* filename, bb_input_t* input) {
     FILE* fp = fopen(filename, "r");
@@ -162,10 +173,10 @@ bad_alloc:
     }
 
     fclose(fp);
-    return BB_SUCCESS;
+    return BB_OK;
 }
 
-bb_status_t bb_bem(const char* filename, bb_result_t* result) {
+bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_result_t* result) {
     bb_input_t* input = &result->input;
     *input = (bb_input_t){0}; // Initialize input structure
 
@@ -207,9 +218,12 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
     printf("Linear system was generated.\n");
 
-    bicgstab_naive(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
-
-    // printf("%d,%d\n",nint_para_fc,ndble_para_fc); 
+    if (compute == BB_COMPUTE_NAIVE) {
+        bicgstab_naive(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
+    }
+    else {
+        bicgstab_cuda(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
+    }
 
     printf("OK\n");
 
@@ -217,7 +231,7 @@ bb_status_t bb_bem(const char* filename, bb_result_t* result) {
 
     release_matrix(rhs);
 
-    return BB_SUCCESS;
+    return BB_OK;
 }
 
 void release_bb_result(bb_result_t* result) {

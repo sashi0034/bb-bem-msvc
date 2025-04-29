@@ -89,15 +89,20 @@ typedef struct bb_result_t {
 } bb_result_t;
 
 typedef enum {
-    BB_SUCCESS = 0, // 成功
+    BB_OK = 0, // 成功
     BB_ERR_FILE_OPEN, // ファイルが開けなかった
     BB_ERR_FILE_FORMAT, // ファイルフォーマット不正
     BB_ERR_MEMORY_ALLOC, // メモリ確保失敗
     BB_ERR_UNKNOWN // その他不明なエラー
 } bb_status_t;
 
+typedef enum {
+    BB_COMPUTE_NAIVE,
+    BB_COMPUTE_CUDA,
+} bb_compute_t;
+
 /// @brief BEM の計算を実行する関数
-BB_API bb_status_t bb_bem(const char* filename /* in */, bb_result_t* result /* out */);
+BB_API bb_status_t bb_bem(const char* filename /* in */, bb_compute_t /* in */ compute, bb_result_t* result /* out */);
 
 BB_API void release_bb_result(bb_result_t* result /* in */);
 
@@ -105,4 +110,4 @@ BB_API void release_bb_result(bb_result_t* result /* in */);
 }
 #endif
 
-#endif
+#endif // BB_BEM_H
