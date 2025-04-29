@@ -1,6 +1,10 @@
 ﻿#ifndef BICGSTAB_CUDA_H
 #define BICGSTAB_CUDA_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 void bicgstab_cuda(
     int batch,
     int dim,
@@ -10,5 +14,9 @@ void bicgstab_cuda(
     double tor,
     int max_steps
 );
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif // BICGSTAB_CUDA_H
