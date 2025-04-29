@@ -29,6 +29,8 @@ static void release_matrix(void** matrix) {
 
 // -----------------------------------------------
 
+// TODO: Should we attach 'restrict' keyword?
+
 // Matrix vector multiplication with a dense matrix: q = A p 
 static void matvec(int dim, double** A, const double* p, double* q /* out */) {
     for (int row = 0; row < dim; row++) {
