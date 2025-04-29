@@ -4,9 +4,9 @@
 void bicgstab_naive(
     int batch,
     int dim,
-    double** A /* [dim][dim] */,
-    double** b /* [dim][batch] */,
-    double** x /* [dim][batch] */,
+    double** A /* in [dim][dim] */,
+    double** b /* in [dim][batch] */,
+    double** x /* out [dim][batch] */,
     double tor,
     int max_steps
 );

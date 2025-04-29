@@ -30,7 +30,7 @@ static void release_matrix(void** matrix) {
 // -----------------------------------------------
 
 // Matrix vector multiplication with a dense matrix: q = A p 
-static void matvec(int dim, double** A, const double* p, double* q /** @out */) {
+static void matvec(int dim, double** A, const double* p, double* q /* out */) {
     for (int row = 0; row < dim; row++) {
         q[row] = 0.0;
     }
@@ -47,7 +47,7 @@ static void batch_matvec(
     int dim,
     double** mat /* [dim][dim] */,
     double** P /* [dim][batch] */,
-    double** Q /** @out [dim][batch] */
+    double** Q /* out [dim][batch] */
 ) {
     for (int row = 0; row < dim; ++row) {
         for (int n = 0; n < batch; ++n) {
@@ -65,7 +65,7 @@ static void batch_matvec(
 }
 
 // Calculation of residual matrix with a dense matrix: r = b - A x 
-static void residual(int dim, double** A, const double* x, const double* b, double* r /** @out */) {
+static void residual(int dim, double** A, const double* x, const double* b, double* r /* out */) {
     for (int row = 0; row < dim; row++) {
         r[row] = b[row];
     }
@@ -83,7 +83,7 @@ static void batch_residual(
     double** A /* [dim][dim] */,
     double** X /* [dim][batch] */,
     double** B /* [dim][batch] */,
-    double** R /** @out [dim][batch] */
+    double** R /* out [dim][batch] */
 ) {
     for (int row = 0; row < dim; ++row) {
         for (int n = 0; n < batch; ++n) {
@@ -114,7 +114,7 @@ static void batch_dot_product(
     int dim,
     double** X /* [dim][batch] */ ,
     double** Y /* [dim][batch] */ ,
-    double* out /** @out */
+    double* out /* out */
 ) {
     for (int n = 0; n < batch; ++n) {
         out[n] = 0.0;
@@ -127,21 +127,21 @@ static void batch_dot_product(
     }
 }
 
-static void batch_sqrt(int batch, const double* x, double* out /** @out */) {
+static void batch_sqrt(int batch, const double* x, double* out /* out */) {
     for (int n = 0; n < batch; ++n) {
         out[n] = sqrt(x[n]);
     }
 }
 
 // x * y
-static void batch_mul(int batch, const double* x, const double* y, double* out /** @out */) {
+static void batch_mul(int batch, const double* x, const double* y, double* out /* out */) {
     for (int n = 0; n < batch; ++n) {
         out[n] = x[n] * y[n];
     }
 }
 
 // x / y
-static void batch_div(int batch, const double* x, const double* y, double* out /** @out */) {
+static void batch_div(int batch, const double* x, const double* y, double* out /* out */) {
     for (int n = 0; n < batch; ++n) {
         out[n] = x[n] / y[n];
     }
@@ -160,9 +160,9 @@ static int batch_lt(int batch, const double* x, double y) {
 void bicgstab_naive(
     int batch,
     int dim,
-    double** A /* [dim][dim] */,
-    double** b /* [dim][batch] */,
-    double** x /* [dim][batch] */,
+    double** A /* in [dim][dim] */,
+    double** b /* in [dim][batch] */,
+    double** x /* out [dim][batch] */,
     double tor,
     int max_steps
 ) {
