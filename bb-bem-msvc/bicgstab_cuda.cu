@@ -188,7 +188,7 @@ __global__ void kernel_update_r(
     }
 }
 
-void bicgstab_cuda(
+extern "C" void bicgstab_cuda(
     int batch,
     int dim,
     double** A /* in [dim][dim] */,
