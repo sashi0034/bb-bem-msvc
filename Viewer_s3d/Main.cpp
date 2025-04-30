@@ -44,6 +44,7 @@ struct Viewer_3sd : IAddon {
 
 	bb_result_t m_bb_naive{};
 	bb_result_t m_bb_cuda{};
+	bb_result_t m_bb_cuda_wmma{};
 
 	Array<SphereData> m_sphereList{};
 
@@ -57,7 +58,8 @@ struct Viewer_3sd : IAddon {
 		Window::Resize(1280, 720);
 
 		if (bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_NAIVE, &m_bb_naive) == BB_OK &&
-			bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK
+			bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK &&
+			bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK
 		) {
 			rebuildSphereList();
 		}
@@ -106,7 +108,7 @@ struct Viewer_3sd : IAddon {
 		}
 
 		if (SimpleGUI::Button(U"{}"_fmt(getComputeName()), Vec2{20, 20})) {
-			m_currentCompute = static_cast<bb_compute_t>((m_currentCompute + 1) % (BB_COMPUTE_CUDA + 1));
+			m_currentCompute = static_cast<bb_compute_t>((m_currentCompute + 1) % (BB_COMPUTE_CUDA_WMMA + 1));
 			rebuildSphereList();
 		}
 
@@ -120,11 +122,31 @@ struct Viewer_3sd : IAddon {
 
 private:
 	const bb_result_t& get_bb_result() const {
-		return m_currentCompute == BB_COMPUTE_NAIVE ? m_bb_naive : m_bb_cuda;
+		switch (m_currentCompute) {
+		case BB_COMPUTE_NAIVE:
+			return m_bb_naive;
+		case BB_COMPUTE_CUDA:
+			return m_bb_cuda;
+		case BB_COMPUTE_CUDA_WMMA:
+			return m_bb_cuda_wmma;
+		default:
+			assert(false);
+			return {};
+		}
 	}
 
 	String getComputeName() const {
-		return m_currentCompute == BB_COMPUTE_NAIVE ? U"Naive" : U"CUDA";
+		switch (m_currentCompute) {
+		case BB_COMPUTE_NAIVE:
+			return U"Naive";
+		case BB_COMPUTE_CUDA:
+			return U"CUDA";
+		case BB_COMPUTE_CUDA_WMMA:
+			return U"CUDA WMMA";
+		default:
+			assert(false);
+			return {};
+		}
 	}
 
 	void rebuildSphereList() {

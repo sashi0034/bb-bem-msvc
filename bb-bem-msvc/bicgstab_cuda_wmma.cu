@@ -1,7 +1,7 @@
 ﻿#include <cuda_runtime.h>
 #include <stdio.h>
 
-#include "bicgstab_cuda.h"
+#include "bicgstab_cuda_wmma.h"
 
 #define CUDA_CHECK(err) do { \
     cudaError_t _e = (err); \
@@ -188,7 +188,7 @@ __global__ static void kernel_update_r(
     }
 }
 
-extern "C" void bicgstab_cuda(
+extern "C" void bicgstab_cuda_wmma(
     int batch,
     int dim,
     double** A /* in [dim][dim] */,

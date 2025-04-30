@@ -156,6 +156,14 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </ForcedIncludeFiles>
     </ClCompile>
+    <CudaCompile Include="..\bb-bem-msvc\bicgstab_cuda_wmma.cu">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </ForcedIncludeFiles>
+      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </ForcedIncludeFiles>
+    </CudaCompile>
     <ClCompile Include="..\bb-bem-msvc\user_func.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
@@ -378,6 +386,7 @@
     <ClInclude Include="..\bb-bem-msvc\bb_bem.h" />
     <ClInclude Include="..\bb-bem-msvc\bicgstab_cuda.h" />
     <ClInclude Include="..\bb-bem-msvc\bicgstab_naive.h" />
+    <ClInclude Include="..\bb-bem-msvc\bicgstab_cuda_wmma.h" />
     <ClInclude Include="LivePPAddon.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
