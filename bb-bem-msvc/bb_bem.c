@@ -19,8 +19,10 @@ int main() {
 
     // ----------------------------------------------- fp
     FILE* fp = fopen("out2.data", "w");
-    for (int i = 0; i < result.dim; i++) {
-        fprintf(fp, "%20.14e \n", result.sol[i]);
+    for (int n = 0; n < result.input.para_batch; n++) {
+        for (int i = 0; i < result.dim; i++) {
+            fprintf(fp, "%20.14e \n", result.sol[i][n]);
+        }
     }
 
     fclose(fp);
