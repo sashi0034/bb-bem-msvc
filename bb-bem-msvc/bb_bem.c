@@ -15,17 +15,15 @@
 #if !defined(BB_NO_MAIN)
 int main() {
     bb_result_t result;
-    bb_bem("input.txt", &result);
+    bb_bem("input.txt", BB_COMPUTE_CUDA, &result); // CUDA で実行
 
     // ----------------------------------------------- fp
-
     FILE* fp = fopen("out2.data", "w");
     for (int i = 0; i < result.dim; i++) {
         fprintf(fp, "%20.14e \n", result.sol[i]);
     }
 
     fclose(fp);
-
     // -----------------------------------------------
 
     release_bb_result(&result);
