@@ -1,4 +1,6 @@
-﻿#include <cuda_runtime.h>
+﻿#include <mma.h>
+using namespace nvcuda;
+
 #include <stdio.h>
 
 #include "bicgstab_cuda_wmma.h"
@@ -11,6 +13,28 @@
         return; \
     } \
 } while (0)
+
+static void batch_matvec(
+    int batch,
+    int dim,
+    double** mat /* [dim][dim] */,
+    double** P /* [dim][batch] */,
+    double** Q /* out [dim][batch] */
+) {
+    for (int row = 0; row < dim; ++row) {
+        for (int n = 0; n < batch; ++n) {
+            Q[row][n] = 0.0;
+        }
+    }
+
+    for (int row = 0; row < dim; ++row) {
+        for (int col = 0; col < dim; ++col) {
+            for (int n = 0; n < batch; ++n) {
+                Q[row][n] += mat[row][col] * P[col][n];
+            }
+        }
+    }
+}
 
 // Kernel: Q[row, n] = sum_col A[row, col] * P[col, n]
 __global__ static void kernel_matvec(
@@ -32,6 +56,119 @@ __global__ static void kernel_matvec(
 
         Q[row * batch + n] = sum;
     }
+}
+
+static constexpr int WMMA_M = 8;
+static constexpr int WMMA_N = 8;
+static constexpr int WMMA_K = 4;
+
+// Kernel: Q[row, n] = sum_col A[row, col] * P[col, n]
+// All stored in row-major in global memory.
+__global__ void wmma_matvec(
+    int batch,
+    int dim,
+    const double* __restrict__ A /* [dim * dim] */,
+    const double* __restrict__ P /* [dim * batch] */,
+    double* __restrict__ Q /* out [dim * batch] */
+) {
+    // index of this tile
+    int rowTile = blockIdx.x;
+    int colTile = blockIdx.y;
+
+    int row = rowTile * WMMA_M;
+    int col = colTile * WMMA_N;
+
+    // one warp per tile
+    // allocate shared memory:
+    extern __shared__ double shared_mem[]; // this size is set from the host
+    double* shA = shared_mem; // WMMA_M * WMMA_K
+    double* shB = shA + (WMMA_M * WMMA_K); // WMMA_K * WMMA_N
+    double* shC = shB + (WMMA_K * WMMA_N); // WMMA_M * WMMA_N
+
+    // accumulator fragment
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, double> c_frag;
+    wmma::fill_fragment(c_frag, 0.0);
+
+    // loop over K-tiles
+    int numKTiles = (dim + WMMA_K - 1) / WMMA_K;
+    for (int kTile = 0; kTile < numKTiles; ++kTile) {
+        int k = kTile * WMMA_K;
+
+        // copy A-tile (WMMA_M * WMMA_K) into shared memory
+        for (int i = threadIdx.x; i < WMMA_M * WMMA_K; i += warpSize) {
+            int ai = i / WMMA_K; // [0, WMMA_M)
+            int aj = i % WMMA_K; // [0, WMMA_K)
+            int global_r = row + ai;
+            int global_k = k + aj;
+            if (global_r < dim && global_k < dim)
+                shA[ai * WMMA_K + aj] = A[global_r * dim + global_k];
+            else
+                shA[ai * WMMA_K + aj] = 0.0;
+        }
+
+        // copy P-tile (WMMA_K * WMMA_N) into shared memory
+        for (int i = threadIdx.x; i < WMMA_K * WMMA_N; i += warpSize) {
+            int bi = i / WMMA_N; // [0, WMMA_K)
+            int bj = i % WMMA_N; // [0, WMMA_N)
+            int global_k = k + bi;
+            int global_c = col + bj;
+            if (global_k < dim && global_c < batch)
+                shB[bi * WMMA_N + bj] = P[global_k * batch + global_c];
+            else
+                shB[bi * WMMA_N + bj] = 0.0;
+        }
+
+        __syncthreads();
+
+        // load fragments from shared memory
+        wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, double, wmma::row_major> a_frag;
+        wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, double, wmma::row_major> b_frag;
+
+        wmma::load_matrix_sync(a_frag, shA, WMMA_K);
+        wmma::load_matrix_sync(b_frag, shB, WMMA_N);
+
+        // perform the matrix-multiply-accumulate
+        wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+
+        __syncthreads();
+    }
+
+    // store the result fragment to shared memory
+    wmma::store_matrix_sync(shC, c_frag, WMMA_N, wmma::mem_row_major);
+    __syncthreads();
+
+    // write the shared_mem tile back to global Q
+    for (int i = threadIdx.x; i < WMMA_M * WMMA_N; i += warpSize) {
+        int ci = i / WMMA_N; // [0, WMMA_M)
+        int cj = i % WMMA_N; // [0, WMMA_N)
+        int global_r = row + ci;
+        int global_c = col + cj;
+        if (global_r < dim && global_c < batch) {
+            Q[global_r * batch + global_c] = shC[ci * WMMA_N + cj];
+        }
+    }
+}
+
+// Host‐side helper to launch:
+static void launch_wmma_matvec(
+    int batch,
+    int dim,
+    const double* d_A,
+    const double* d_P,
+    double* d_Q
+) {
+    dim3 grid((dim + WMMA_M - 1) / WMMA_M, (batch + WMMA_N - 1) / WMMA_N);
+    dim3 block(32, 1, 1); // one warp per tile
+
+    // bytes of shared memory for A, B, C tiles
+    size_t wmma_shared_bytes = sizeof(double) * (
+        WMMA_M * WMMA_K +
+        WMMA_K * WMMA_N +
+        WMMA_M * WMMA_N
+    );
+
+    wmma_matvec<<<grid, block, wmma_shared_bytes>>>(batch, dim, d_A, d_P, d_Q);
+    // cudaDeviceSynchronize();
 }
 
 // Kernel: R = B - A * X
@@ -267,14 +404,16 @@ extern "C" void bicgstab_cuda_wmma(
     // BiCGSTAB iteration 
     for (int step = 1; step <= max_steps; ++step) {
         // matvec(dim, A, p, Ap);
-        kernel_matvec<<<grid2d, block2d>>>(batch, dim, d_A, d_p, d_Ap);
+        // kernel_matvec<<<grid2d, block2d>>>(batch, dim, d_A, d_p, d_Ap);
+        launch_wmma_matvec(batch, dim, d_A, d_p, d_Ap);
 
         // p[i] = r[i] + beta * (p[i] - zeta * Ap[i]);
         kernel_update_p<<<grid2d, block2d>>>(batch, dim, d_p, d_r, d_p, d_Ap, d_beta, d_zeta);
         cudaMemcpy(d_kp, d_p, dim_batch_bytes, cudaMemcpyDeviceToDevice);
 
         // matvec(dim, A, kp, Akp);
-        kernel_matvec<<<grid2d, block2d>>>(batch, dim, d_A, d_kp, d_Akp);
+        // kernel_matvec<<<grid2d, block2d>>>(batch, dim, d_A, d_kp, d_Akp);
+        launch_wmma_matvec(batch, dim, d_A, d_kp, d_Akp);
 
         // nom = dot_product(dim, r0, r);
         kernel_dot_product<<<blocks1d, threads1d>>>(batch, dim, d_r0, d_r, d_nom);
@@ -295,7 +434,8 @@ extern "C" void bicgstab_cuda_wmma(
         cudaMemcpy(d_kt, d_t, dim_batch_bytes, cudaMemcpyDeviceToDevice);
 
         //  matvec(dim, A, kt, Akt);
-        kernel_matvec<<<grid2d,block2d>>>(batch, dim, d_A, d_kt, d_Akt);
+        // kernel_matvec<<<grid2d,block2d>>>(batch, dim, d_A, d_kt, d_Akt);
+        launch_wmma_matvec(batch, dim, d_A, d_kt, d_Akt);
 
         // nom = dot_product(dim, Akt, t);
         kernel_dot_product<<<blocks1d, threads1d>>>(batch, dim, d_Akt, d_t, d_nom);
