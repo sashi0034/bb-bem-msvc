@@ -23,6 +23,23 @@ namespace
 		double radius;
 		ColorF color;
 	};
+
+	double compute_relative_error(const bb_result_t& a, const bb_result_t& b) {
+		if (a.dim != b.dim) {
+			return 0.0;
+		}
+
+		double a_b_2{};
+		double a_2{};
+		for (int i = 0; i < a.dim; ++i) {
+			for (int n = 0; n < a.input.para_batch; ++n) {
+				a_b_2 += (a.sol[i][n] - b.sol[i][n]) * (a.sol[i][n] - b.sol[i][n]);
+				a_2 += (a.sol[i][n]) * (a.sol[i][n]);
+			}
+		}
+
+		return Math::Sqrt(a_b_2 / a_2);
+	}
 }
 
 struct Viewer_3sd : IAddon {
@@ -61,6 +78,7 @@ struct Viewer_3sd : IAddon {
 			bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK &&
 			bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK
 		) {
+			varifyResult();
 			rebuildSphereList();
 		}
 		else {
@@ -174,6 +192,15 @@ private:
 				.color = sol > 0 ? Palette::Orange.removeSRGBCurve() : Palette::Lightskyblue.removeSRGBCurve()
 			});
 		}
+	}
+
+	void varifyResult() {
+		Console.writeln(U"----------------------------------------------- Result verification");
+
+		Console.writeln(
+			U"Relative error between Naive and Cuda: {}"_fmt(compute_relative_error(m_bb_naive, m_bb_cuda)));
+		Console.writeln(
+			U"Relative error between Naive and Cuda-WMMA: {}"_fmt(compute_relative_error(m_bb_naive, m_bb_cuda_wmma)));
 	}
 };
 
