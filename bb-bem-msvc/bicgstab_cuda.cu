@@ -1,4 +1,6 @@
-﻿#include <cuda_runtime.h>
+﻿#include <mma.h>
+using namespace nvcuda;
+
 #include <stdio.h>
 
 #include "bicgstab_cuda.h"
@@ -236,7 +238,7 @@ extern "C" void bicgstab_cuda(
 
     // -----------------------------------------------
 
-    dim3 block2d{16, 16, 1};
+    dim3 block2d(16, 16, 1);
     dim3 grid2d((dim + 15) / 16, (batch + 15) / 16, 1);
     int threads1d = 256;
     int blocks1d = (batch + threads1d - 1) / threads1d;

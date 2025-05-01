@@ -163,6 +163,7 @@
       </ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </ForcedIncludeFiles>
+      <CodeGeneration>compute_80,sm_80;</CodeGeneration>
     </CudaCompile>
     <ClCompile Include="..\bb-bem-msvc\user_func.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
