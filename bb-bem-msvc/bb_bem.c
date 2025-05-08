@@ -41,7 +41,7 @@ static void** allocate_matrix(size_t rows, size_t cols, size_t elem_size) {
     void** array = (void**)malloc(sizeof(void*) * rows);
     if (!array) return NULL;
 
-    array[0] = malloc(rows * cols * elem_size);
+    array[0] = malloc(rows * cols * elem_size); // CHECK: Should we use aligned_allocate instead?
     if (!array[0]) {
         free(array);
         return NULL;
@@ -49,6 +49,10 @@ static void** allocate_matrix(size_t rows, size_t cols, size_t elem_size) {
 
     for (size_t i = 1; i < rows; i++) {
         array[i] = (uint8_t*)array[0] + i * cols * elem_size;
+    }
+
+    if (((uintptr_t)&array[0]) % 16 != 0) {
+        printf("ERROR: matrix is not 16-byte aligned! Address: %p\n", (void*)&array[0]);
     }
 
     return array;
