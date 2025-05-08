@@ -86,6 +86,9 @@ typedef struct bb_result_t {
 
     /// @brief 解ベクトル (サイズ: dim * batch)
     double** sol;
+
+    /// @brief 演算部分の計算時間
+    double compute_time;
 } bb_result_t;
 
 typedef enum {

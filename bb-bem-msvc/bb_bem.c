@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdint.h>
+#include <time.h>
 
 #include "bb_bem.h"
 
@@ -226,6 +227,8 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
 
     printf("Linear system was generated.\n");
 
+    const clock_t compute_start = clock(); // <-- Start time measurement
+
     if (compute == BB_COMPUTE_NAIVE) {
         bicgstab_naive(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
     }
@@ -238,6 +241,8 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     else {
         printf("Error: Unknown compute type\n");
     }
+
+    result->compute_time = (double)(clock() - compute_start) / CLOCKS_PER_SEC; // <-- End time measurement
 
     printf("Completed\n");
 

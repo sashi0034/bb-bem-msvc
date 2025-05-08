@@ -201,6 +201,13 @@ private:
 			U"Relative error between Naive and Cuda: {}"_fmt(compute_relative_error(m_bb_naive, m_bb_cuda)));
 		Console.writeln(
 			U"Relative error between Naive and Cuda-WMMA: {}"_fmt(compute_relative_error(m_bb_naive, m_bb_cuda_wmma)));
+
+		Console.writeln(
+			U"Compute time (Naive): {} sec"_fmt(m_bb_naive.compute_time));
+		Console.writeln(
+			U"Compute time (Cuda): {} sec"_fmt(m_bb_cuda.compute_time));
+		Console.writeln(
+			U"Compute time (Cuda-WMMA): {} sec"_fmt(m_bb_cuda_wmma.compute_time));
 	}
 };
 
