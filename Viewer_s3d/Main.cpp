@@ -1,7 +1,7 @@
 ﻿# include <Siv3D.hpp>
 
 #include "LivePPAddon.h"
-#include "../bb-bem-msvc/bb_bem.h"
+#include "../bb-bem-msvc/src/bb_bem.h"
 
 namespace
 {

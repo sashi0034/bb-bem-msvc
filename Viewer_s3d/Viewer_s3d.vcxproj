@@ -126,7 +126,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\bb-bem-msvc\bb_bem.c">
+    <ClCompile Include="..\bb-bem-msvc\src\bb_bem.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -140,7 +140,7 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">BB_NO_MAIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">BB_NO_MAIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <CudaCompile Include="..\bb-bem-msvc\bicgstab_cuda.cu">
+    <CudaCompile Include="..\bb-bem-msvc\src\bicgstab_cuda.cu">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -148,7 +148,7 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </ForcedIncludeFiles>
     </CudaCompile>
-    <ClCompile Include="..\bb-bem-msvc\bicgstab_naive.c">
+    <ClCompile Include="..\bb-bem-msvc\src\bicgstab_naive.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -156,7 +156,7 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </ForcedIncludeFiles>
     </ClCompile>
-    <CudaCompile Include="..\bb-bem-msvc\bicgstab_cuda_wmma.cu">
+    <CudaCompile Include="..\bb-bem-msvc\src\bicgstab_cuda_wmma.cu">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -165,7 +165,7 @@
       </ForcedIncludeFiles>
       <CodeGeneration>compute_80,sm_80;</CodeGeneration>
     </CudaCompile>
-    <ClCompile Include="..\bb-bem-msvc\user_func.c">
+    <ClCompile Include="..\bb-bem-msvc\src\user_func.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -384,10 +384,10 @@
     <Xml Include="App\example\xml\test.xml" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\bb-bem-msvc\bb_bem.h" />
-    <ClInclude Include="..\bb-bem-msvc\bicgstab_cuda.h" />
-    <ClInclude Include="..\bb-bem-msvc\bicgstab_naive.h" />
-    <ClInclude Include="..\bb-bem-msvc\bicgstab_cuda_wmma.h" />
+    <ClInclude Include="..\bb-bem-msvc\src\bb_bem.h" />
+    <ClInclude Include="..\bb-bem-msvc\src\bicgstab_cuda.h" />
+    <ClInclude Include="..\bb-bem-msvc\src\bicgstab_naive.h" />
+    <ClInclude Include="..\bb-bem-msvc\src\bicgstab_cuda_wmma.h" />
     <ClInclude Include="LivePPAddon.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
