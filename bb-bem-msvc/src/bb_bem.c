@@ -215,7 +215,16 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
 
     for (int i = 0; i < result->dim; i++) {
         for (int j = 0; j < result->dim; j++) {
-            A[i][j] = element_ij_(&i, &j, &input->nond, &input->nofc, &input->np[0], &input->face2node[0][0]);
+            A[i][j] = element_ij_(
+                &i,
+                &j,
+                &input->nond,
+                &input->nofc,
+                &input->np[0],
+                &input->face2node[0][0],
+                input->int_para_fc ? &input->int_para_fc[0][0][0] : NULL, // FIXME: [n][0][0]
+                input->dble_para_fc ? &input->dble_para_fc[0][0][0] : NULL // FIXME: [n][0][0]
+            );
         }
     }
 

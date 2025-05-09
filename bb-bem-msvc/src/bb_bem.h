@@ -24,7 +24,9 @@ typedef struct vector3_t {
 /// @param[in] nond 全体の節点数
 /// @param[in] nofc 全体の要素数
 /// @param[in] np 節点の3次元座標値配列（サイズ: [3][*nond]）
-/// @param[in] face2node 各要素を構成する節点番号の配列（サイズ: [*nond_on_face][*nofc]）
+/// @param[in] face2node 各要素を構成する節点番号の配列（サイズ: nofc * nond_on_face）
+/// @param[in] int_para_fc 各要素の int 型パラメータ（サイズ: nofc * nint_para_fc）
+/// @param[in] dble_para_fc 各要素の double 型パラメータ（サイズ: nofc * ndble_para_fc）
 ///
 /// @return 要素内の i, j 節点間の計算結果（例: 積分値）
 ///
@@ -38,7 +40,9 @@ BB_USER_FUNC double element_ij_(
     int* nond /* in */,
     int* nofc /* in */,
     vector3_t* np /* in */,
-    int* face2node /* in */
+    int* face2node /* in */,
+    int* int_para_fc /* in */,
+    double* dble_para_fc /* in */
 );
 
 // -----------------------------------------------
