@@ -221,16 +221,20 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
                 &input->nond,
                 &input->nofc,
                 &input->np[0],
-                &input->face2node[0][0],
-                input->int_para_fc ? &input->int_para_fc[0][0][0] : NULL, // FIXME: [n][0][0]
-                input->dble_para_fc ? &input->dble_para_fc[0][0][0] : NULL // FIXME: [n][0][0]
+                &input->face2node[0][0]
             );
         }
     }
 
     for (int i = 0; i < result->dim; i++) {
         for (int n = 0; n < input->para_batch; n++) {
-            rhs[i][n] = input->dble_para_fc[n][i][0]; // TODO
+            rhs[i][n] =
+                rhs_vector_i_(
+                    &i,
+                    &input->nint_para_fc,
+                    input->int_para_fc ? &input->int_para_fc[n][0][0] : NULL,
+                    &input->ndble_para_fc,
+                    input->dble_para_fc ? &input->dble_para_fc[n][0][0] : NULL);
         }
     }
 

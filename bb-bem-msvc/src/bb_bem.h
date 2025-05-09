@@ -19,30 +19,47 @@ typedef struct vector3_t {
 /// この関数は、境界要素法による 3 次元問題の離散化モデルに基づき、
 /// 指定された要素内の2節点（i, j）に関連する物理量を計算します。
 ///
-/// @param[in] i 節点 i のインデックス（0-origin）
-/// @param[in] j 節点 j のインデックス（0-origin）
-/// @param[in] nond 全体の節点数
-/// @param[in] nofc 全体の要素数
-/// @param[in] np 節点の3次元座標値配列（サイズ: [3][*nond]）
-/// @param[in] face2node 各要素を構成する節点番号の配列（サイズ: nofc * nond_on_face）
-/// @param[in] int_para_fc 各要素の int 型パラメータ（サイズ: nofc * nint_para_fc）
-/// @param[in] dble_para_fc 各要素の double 型パラメータ（サイズ: nofc * ndble_para_fc）
+/// @param p_i 節点 i のインデックス（0-origin）
+/// @param p_j 節点 j のインデックス（0-origin）
+/// @param p_nond 全体の節点数
+/// @param p_nofc 全体の要素数
+/// @param np 節点の3次元座標値配列（サイズ: [3][*nond]）
+/// @param face2node 各要素を構成する節点番号の配列（サイズ: [nofc][nond_on_face]）
 ///
 /// @return 要素内の i, j 節点間の計算結果（例: 積分値）
 ///
 /// @note 各要素は多角形（三角形など）であり、その頂点は節点として表される。
 /// 節点座標 `np` および構成節点番号 `face2node` を用いて各要素の幾何情報を参照する。
 /// 
-/// @remark Fortran の場合は 'real(8) function element_ij(i, j, nond, nofc, np, face2node)' として定義してください。
+/// @code for fortran `real(8) function element_ij(i, j, nond, nofc, np, face2node)`
 BB_USER_FUNC double element_ij_(
-    int* i /* in */,
-    int* j /* in */,
-    int* nond /* in */,
-    int* nofc /* in */,
-    vector3_t* np /* in */,
-    int* face2node /* in */,
-    int* int_para_fc /* in */,
-    double* dble_para_fc /* in */
+    const int* p_i,
+    const int* p_j,
+    const int* p_nond,
+    const int* p_nofc,
+    const vector3_t* np,
+    const int* face2node
+);
+
+/**
+ * @brief ユーザー側で定義される右辺ベクトル [i] を返す関数
+ * 
+ * @param p_i ベクトルの要素番号
+ * @param p_nint_para_fc 各要素上で定義される int 型パラメータ数
+ * @param int_para_fc 各要素の int パラメータ (サイズ: nofc * nint_para_fc)
+ * @param p_ndble_para_fc 各要素上で定義される double 型パラメータ数
+ * @param dble_para_fc 各要素の double パラメータ (サイズ: nofc * ndble_para_fc)
+ * 
+ * @return 右辺ベクトルの i 番目の要素
+ *
+ * @code for fortran 'real(8) function rhs_vector_i(i, nint_para_fc, ndble_para_fc, int_para_fc, dble_para_fc)'
+ */
+BB_USER_FUNC double rhs_vector_i_(
+    const int* p_i,
+    const int* p_nint_para_fc,
+    const int* int_para_fc,
+    const int* p_ndble_para_fc,
+    const double* dble_para_fc
 );
 
 // -----------------------------------------------

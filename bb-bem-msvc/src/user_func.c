@@ -107,14 +107,12 @@ static double face_integral(const double xs[3],
  * Here we assume each face is a triangle (3 nodes per face).
  */
 double element_ij_(
-    int* pi,
-    int* pj,
-    int* nond,
-    int* nofc,
-    vector3_t* np,
-    int* face2node,
-    int* int_para_fc,
-    double* dble_para_fc
+    const int* pi,
+    const int* pj,
+    const int* p_nond,
+    const int* p_nofc,
+    const vector3_t* np,
+    const int* face2node
 ) {
     int fi = *pi;
     int fj = *pj;
@@ -143,4 +141,14 @@ double element_ij_(
 
     // Compute and return the face integral 
     return face_integral(xf_j, yf_j, zf_j, xp, yp, zp);
+}
+
+double rhs_vector_i_(
+    const int* p_i,
+    const int* p_nint_para_fc,
+    const int* int_para_fc,
+    const int* p_ndble_para_fc,
+    const double* dble_para_fc
+) {
+    return dble_para_fc[*p_i * *p_ndble_para_fc + 0];
 }
