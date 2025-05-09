@@ -62,6 +62,7 @@ struct Viewer_3sd : IAddon {
 	bb_result_t m_bb_naive{};
 	bb_result_t m_bb_cuda{};
 	bb_result_t m_bb_cuda_wmma{};
+	bb_result_t m_bb_cuda_wmma_2{};
 
 	Array<SphereData> m_sphereList{};
 
@@ -76,7 +77,8 @@ struct Viewer_3sd : IAddon {
 
 		if (bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_NAIVE, &m_bb_naive) == BB_OK &&
 			bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK &&
-			bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK
+			bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK &&
+			bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA_WMMA_2, &m_bb_cuda_wmma_2) == BB_OK
 		) {
 			varifyResult();
 			rebuildSphereList();
@@ -147,6 +149,8 @@ private:
 			return m_bb_cuda;
 		case BB_COMPUTE_CUDA_WMMA:
 			return m_bb_cuda_wmma;
+		case BB_COMPUTE_CUDA_WMMA_2:
+			return m_bb_cuda_wmma_2;
 		default:
 			assert(false);
 			return {};
@@ -161,10 +165,33 @@ private:
 			return U"CUDA";
 		case BB_COMPUTE_CUDA_WMMA:
 			return U"CUDA WMMA";
+		case BB_COMPUTE_CUDA_WMMA_2:
+			return U"CUDA WMMA 2";
 		default:
 			assert(false);
 			return {};
 		}
+	}
+
+	void varifyResult() {
+		Console.writeln(U"----------------------------------------------- Result verification");
+
+		Console.writeln(
+			U"Relative error between Naive and Cuda: {}"_fmt(compute_relative_error(m_bb_naive, m_bb_cuda)));
+		Console.writeln(
+			U"Relative error between Naive and Cuda-WMMA: {}"_fmt(compute_relative_error(m_bb_naive, m_bb_cuda_wmma)));
+		Console.writeln(
+			U"Relative error between Cuda and Cuda-WMMA-2: {}"_fmt(
+				compute_relative_error(m_bb_cuda, m_bb_cuda_wmma_2)));
+
+		Console.writeln(
+			U"Compute time (Naive): {} sec"_fmt(m_bb_naive.compute_time));
+		Console.writeln(
+			U"Compute time (Cuda): {} sec"_fmt(m_bb_cuda.compute_time));
+		Console.writeln(
+			U"Compute time (Cuda-WMMA): {} sec"_fmt(m_bb_cuda_wmma.compute_time));
+		Console.writeln(
+			U"Compute time (Cuda-WMMA-2): {} sec"_fmt(m_bb_cuda_wmma_2.compute_time));
 	}
 
 	void rebuildSphereList() {
@@ -192,22 +219,6 @@ private:
 				.color = sol > 0 ? Palette::Orange.removeSRGBCurve() : Palette::Lightskyblue.removeSRGBCurve()
 			});
 		}
-	}
-
-	void varifyResult() {
-		Console.writeln(U"----------------------------------------------- Result verification");
-
-		Console.writeln(
-			U"Relative error between Naive and Cuda: {}"_fmt(compute_relative_error(m_bb_naive, m_bb_cuda)));
-		Console.writeln(
-			U"Relative error between Naive and Cuda-WMMA: {}"_fmt(compute_relative_error(m_bb_naive, m_bb_cuda_wmma)));
-
-		Console.writeln(
-			U"Compute time (Naive): {} sec"_fmt(m_bb_naive.compute_time));
-		Console.writeln(
-			U"Compute time (Cuda): {} sec"_fmt(m_bb_cuda.compute_time));
-		Console.writeln(
-			U"Compute time (Cuda-WMMA): {} sec"_fmt(m_bb_cuda_wmma.compute_time));
 	}
 };
 

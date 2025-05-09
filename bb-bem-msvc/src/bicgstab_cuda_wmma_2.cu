@@ -3,7 +3,7 @@ using namespace nvcuda;
 
 #include <stdio.h>
 
-#include "bicgstab_cuda_wmma.h"
+#include "bicgstab_cuda_wmma_2.h"
 
 #define CUDA_CHECK(err) do { \
     cudaError_t _e = (err); \
@@ -322,7 +322,7 @@ __global__ static void kernel_update_r(
     }
 }
 
-extern "C" void bicgstab_cuda_wmma(
+extern "C" void bicgstab_cuda_wmma_2(
     int batch,
     int dim,
     double** A /* in [dim][dim] */,

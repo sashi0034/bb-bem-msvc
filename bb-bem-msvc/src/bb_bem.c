@@ -13,6 +13,7 @@
 #include "bicgstab_naive.h"
 #include "bicgstab_cuda.h"
 #include "bicgstab_cuda_wmma.h"
+#include "bicgstab_cuda_wmma_2.h"
 
 #if !defined(BB_NO_MAIN)
 int main() {
@@ -237,6 +238,9 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     }
     else if (compute == BB_COMPUTE_CUDA_WMMA) {
         bicgstab_cuda_wmma(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
+    }
+    else if (compute == BB_COMPUTE_CUDA_WMMA_2) {
+        bicgstab_cuda_wmma_2(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
     }
     else {
         printf("Error: Unknown compute type\n");
