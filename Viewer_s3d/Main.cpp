@@ -74,14 +74,15 @@ struct Viewer_3sd : IAddon {
 		// ウインドウとシーンを 1280x720 にリサイズ
 		Window::Resize(1280, 720);
 
-		if (bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_NAIVE, &m_bb_naive) == BB_OK &&
-			bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK &&
-			bb_bem("../../bb-bem-msvc/input.txt", BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK
+		const char* filename = "../../bb-bem-msvc/input.txt";
+		if (bb_bem(filename, BB_COMPUTE_NAIVE, &m_bb_naive) == BB_OK &&
+			bb_bem(filename, BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK &&
+			bb_bem(filename, BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK
 		) {
 			varifyResult();
 			rebuildSphereList();
 		}
-		else {
+		else {7
 			std::cerr << "Error: Boundary element analysis failed: input.txt" << std::endl;
 		}
 
@@ -171,6 +172,15 @@ private:
 		m_sphereList.clear();
 		const auto& bb_result = get_bb_result();
 		const auto& bb_input = bb_result.input;
+
+		double maxSolAbs{};
+		for (int fc_id = 0; fc_id < bb_input.nofc; ++fc_id) {
+			const double sol = bb_result.sol[fc_id][m_currentBatch];
+			maxSolAbs = Math::Max(maxSolAbs, Math::Abs(sol));
+		}
+
+		if (maxSolAbs == 0.0) maxSolAbs = 1.0;
+
 		for (int fc_id = 0; fc_id < bb_input.nofc; ++fc_id) {
 			// 各要素の重心を計算
 			Vec3 centroid{0.0, 0.0, 0.0};
@@ -188,7 +198,7 @@ private:
 
 			m_sphereList.push_back({
 				.center = centroid * 10,
-				.radius = Math::Abs(sol) * 0.5e10,
+				.radius = (Math::Abs(sol) / maxSolAbs) * 0.25,
 				.color = sol > 0 ? Palette::Orange.removeSRGBCurve() : Palette::Lightskyblue.removeSRGBCurve()
 			});
 		}
