@@ -281,8 +281,7 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     bb_status_t input_status;
     if (has_stl_extension(filename)) {
         input_status = read_input_from_stl(filename, input);
-    }
-    else {
+    } else {
         input_status = read_input_from_file(filename, input);
     }
 
@@ -310,30 +309,29 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     }
 
     // User Specified Function 
-    // element_integral(coordinate np, double **a, ); 
+    // element_integral(coordinate np, double **a, );
+
+    bb_props_t props;
+    props.nofc = input->nofc;
+    props.nond = input->nond;
+    props.nond_on_face = input->nond_on_face;
+    props.nint_para_fc = input->nint_para_fc;
+    props.ndble_para_fc = input->ndble_para_fc;
+    props.para_batch = input->para_batch;
+    props.np = &input->np[0];
+    props.face2node = &input->face2node[0][0];
+    props.int_para_fc = input->int_para_fc ? &input->int_para_fc[0][0][0] : NULL;
+    props.dble_para_fc = input->dble_para_fc ? &input->dble_para_fc[0][0][0] : NULL;
 
     for (int i = 0; i < result->dim; i++) {
         for (int j = 0; j < result->dim; j++) {
-            A[i][j] = element_ij_(
-                &i,
-                &j,
-                &input->nond,
-                &input->nofc,
-                &input->np[0],
-                &input->face2node[0][0]
-            );
+            A[i][j] = element_ij_(&i, &j, &props);
         }
     }
 
     for (int i = 0; i < result->dim; i++) {
         for (int n = 0; n < input->para_batch; n++) {
-            rhs[i][n] =
-                rhs_vector_i_(
-                    &i,
-                    &input->nint_para_fc,
-                    input->int_para_fc ? &input->int_para_fc[n][0][0] : NULL,
-                    &input->ndble_para_fc,
-                    input->dble_para_fc ? &input->dble_para_fc[n][0][0] : NULL);
+            rhs[i][n] = rhs_vector_i_(&i, &n, &props);
         }
     }
 
@@ -343,14 +341,11 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
 
     if (compute == BB_COMPUTE_NAIVE) {
         bicgstab_naive(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
-    }
-    else if (compute == BB_COMPUTE_CUDA) {
+    } else if (compute == BB_COMPUTE_CUDA) {
         bicgstab_cuda(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
-    }
-    else if (compute == BB_COMPUTE_CUDA_WMMA) {
+    } else if (compute == BB_COMPUTE_CUDA_WMMA) {
         bicgstab_cuda_wmma(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
-    }
-    else {
+    } else {
         printf("Error: Unknown compute type\n");
     }
 

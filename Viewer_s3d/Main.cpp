@@ -82,8 +82,8 @@ struct Viewer_3sd : IAddon {
 			varifyResult();
 			rebuildSphereList();
 		}
-		else {7
-			std::cerr << "Error: Boundary element analysis failed: input.txt" << std::endl;
+		else {
+			std::cerr << "Error: Boundary element analysis failed: " << filename << std::endl;
 		}
 
 		return true;

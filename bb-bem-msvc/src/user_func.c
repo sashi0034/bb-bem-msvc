@@ -107,15 +107,15 @@ static double face_integral(const double xs[3],
  * Here we assume each face is a triangle (3 nodes per face).
  */
 double element_ij_(
-    const int* pi,
-    const int* pj,
-    const int* p_nond,
-    const int* p_nofc,
-    const vector3_t* np,
-    const int* face2node
+    const int* p_i,
+    const int* p_j,
+    const bb_props_t* props
 ) {
-    int fi = *pi;
-    int fj = *pj;
+    int fi = *p_i;
+    int fj = *p_j;
+
+    int* face2node = props->face2node;
+    vector3_t* np = props->np;
 
     // Coordinates of face fi for centroid 
     double xf_i[3], yf_i[3], zf_i[3];
@@ -145,14 +145,12 @@ double element_ij_(
 
 double rhs_vector_i_(
     const int* p_i,
-    const int* p_nint_para_fc,
-    const int* int_para_fc,
-    const int* p_ndble_para_fc,
-    const double* dble_para_fc
+    const int* p_n,
+    const bb_props_t* props
 ) {
-    if (*p_ndble_para_fc == 0) {
+    if (props->ndble_para_fc == 0) {
         return 1.0; // TODO
     }
 
-    return dble_para_fc[*p_i * *p_ndble_para_fc + 0];
+    return props->dble_para_fc[*p_i * props->ndble_para_fc + 0];
 }
