@@ -150,5 +150,9 @@ double rhs_vector_i_(
     const int* p_ndble_para_fc,
     const double* dble_para_fc
 ) {
+    if (*p_ndble_para_fc == 0) {
+        return 1.0; // TODO
+    }
+
     return dble_para_fc[*p_i * *p_ndble_para_fc + 0];
 }

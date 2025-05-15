@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#include "stl_loader.h"
+
 #include "bb_bem.h"
 
 #include "bicgstab_naive.h"
@@ -172,7 +174,7 @@ fail:
     }
 
 bad_alloc:
-    if (!input->np) {
+    if (!success) {
         fclose(fp);
         printf("Error: Out of memory while reading %s\n", filename);
         return BB_ERR_FILE_OPEN;
@@ -182,11 +184,108 @@ bad_alloc:
     return BB_OK;
 }
 
+// -----------------------------------------------
+
+static bool has_stl_extension(const char* filename) {
+    const char* dot = strrchr(filename, '.');
+    return dot != NULL && strcmp(dot, ".stl") == 0;
+}
+
+static bb_status_t read_input_from_stl(const char* filename, bb_input_t* input) {
+    stl_model_t model;
+    if (!load_stl_ascii(filename, &model)) {
+        printf("Error: Cannot open file %s\n", filename);
+        return BB_ERR_FILE_OPEN;
+    }
+
+    int success = 0;
+
+    // Read the number of nodes from an input data file: nond
+
+    input->nond = model.num_facets * 3;
+
+    // Allocation for the array for the coordinates of the nodes 
+    input->np = (vector3_t*)malloc(sizeof(vector3_t) * input->nond);
+    if (!input->np) goto bad_alloc;
+
+    // Read the coordinates of the nodes from an input data file: np  
+    for (int i = 0; i < model.num_facets; i++) {
+        for (int j = 0; j < 3; j++) {
+            input->np[i * 3 + j].x = model.facets[i].v[j].x;
+            input->np[i * 3 + j].y = model.facets[i].v[j].y;
+            input->np[i * 3 + j].z = model.facets[i].v[j].z;
+        }
+    }
+
+    // Set value: nofc
+    input->nofc = model.num_facets;
+
+    // Set value: nond_on_face  
+    input->nond_on_face = 3;
+
+    // Set value: nint_para_fc
+    input->nint_para_fc = 0;
+
+    // Set value: ndble_para_fc
+    input->ndble_para_fc = 0;
+
+    // Set value: para_batch
+    input->ndble_para_fc = 1;
+
+    printf("Number of nodes=%d Number of faces=%d\n", input->nond, input->nofc);
+
+    // -----------------------------------------------
+
+    // face2node
+    input->face2node = (int**)allocate_matrix(input->nofc, input->nond_on_face, sizeof(int));
+    if (!input->face2node) goto bad_alloc;
+
+    for (int i = 0; i < input->nofc; i++) {
+        for (int j = 0; j < input->nond_on_face; j++) {
+            input->face2node[i][j] = i * 3 + j;
+        }
+    }
+
+    // int_para_fc
+    // no
+
+    // dble_para_fc
+    // no
+
+    success = 1;
+
+    // fail:
+    //     if (!success) {
+    //         free_stl_model(&model);
+    //         printf("Error: Invalid file format %s\n", filename);
+    //         return BB_ERR_FILE_FORMAT;
+    //     }
+
+bad_alloc:
+    if (!success) {
+        free_stl_model(&model);
+        printf("Error: Out of memory while reading %s\n", filename);
+        return BB_ERR_FILE_OPEN;
+    }
+
+    free_stl_model(&model);
+    return BB_OK;
+}
+
+// -----------------------------------------------
+
 bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_result_t* result) {
     bb_input_t* input = &result->input;
     *input = (bb_input_t){0}; // Initialize input structure
 
-    const bb_status_t input_status = read_input_from_file(filename, input);
+    bb_status_t input_status;
+    if (has_stl_extension(filename)) {
+        input_status = read_input_from_stl(filename, input);
+    }
+    else {
+        input_status = read_input_from_file(filename, input);
+    }
+
     if (input_status != BB_OK) {
         return input_status;
     }

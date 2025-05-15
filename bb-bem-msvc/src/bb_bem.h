@@ -23,7 +23,7 @@ typedef struct vector3_t {
 /// @param p_j 節点 j のインデックス（0-origin）
 /// @param p_nond 全体の節点数
 /// @param p_nofc 全体の要素数
-/// @param np 節点の3次元座標値配列（サイズ: [3][*nond]）
+/// @param np 節点の3次元座標値配列（サイズ: [3][nond]）
 /// @param face2node 各要素を構成する節点番号の配列（サイズ: [nofc][nond_on_face]）
 ///
 /// @return 要素内の i, j 節点間の計算結果（例: 積分値）
