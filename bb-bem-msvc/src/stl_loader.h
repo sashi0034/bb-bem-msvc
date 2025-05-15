@@ -34,12 +34,25 @@ static void free_stl_model(stl_model_t* model) {
     model->num_facets = 0;
 }
 
-static char* skip_whitespace(char* str) {
-    while (*str && isspace((unsigned char)*str)) {
-        str++;
+static bool stl_detail_read_line(char** out, char* buffer, int max_count, FILE* fp) {
+    static const char* s_empty = "";
+    (*out)[0] = s_empty[0];
+
+    if (!fgets(buffer, max_count, fp)) {
+        return false;
     }
 
-    return str;
+    *out = buffer;
+
+    while (**out && isspace((unsigned char)**out)) {
+        (*out)++;
+    }
+
+    if (**out == '\0') {
+        return false;
+    }
+
+    return true;
 }
 
 static bool load_stl_ascii(const char* filename, stl_model_t* model /* out */) {
@@ -56,7 +69,8 @@ static bool load_stl_ascii(const char* filename, stl_model_t* model /* out */) {
 
     int capacity = 0;
     stl_vector3_t normal;
-    char line[STL_LINE_BUFFER_SIZE];
+    char line_buffer[STL_LINE_BUFFER_SIZE];
+    char* line = line_buffer;
 
     // Read header (solid ...)
     if (!fgets(line, STL_LINE_BUFFER_SIZE, fp)) {
@@ -64,36 +78,28 @@ static bool load_stl_ascii(const char* filename, stl_model_t* model /* out */) {
         return false;
     }
 
-    while (fgets(line, STL_LINE_BUFFER_SIZE, fp)) {
-        char* p = skip_whitespace(line);
-        if (*p == '\0') continue;
-
-        if (strncmp(p, "endsolid", 8) == 0) {
+    while (stl_detail_read_line(&line, line_buffer, STL_LINE_BUFFER_SIZE, fp)) {
+        if (strncmp(line, "endsolid", 8) == 0) {
             break;
         }
 
-        if (strncmp(p, "facet normal", 12) == 0) {
+        if (strncmp(line, "facet normal", 12) == 0) {
             stl_facet_t current;
 
             // Parse normal
-            if (sscanf(p, "facet normal %f %f %f", &normal.x, &normal.y, &normal.z) != 3) {
+            if (sscanf(line, "facet normal %f %f %f", &normal.x, &normal.y, &normal.z) != 3) {
                 continue;
             }
 
             // Read "outer loop"
-            do {
-                if (!fgets(line, STL_LINE_BUFFER_SIZE, fp)) break;
-                p = skip_whitespace(line);
-            } while (*p == '\0');
+            while (!stl_detail_read_line(&line, line_buffer, STL_LINE_BUFFER_SIZE, fp)) {
+            }
 
             // Read 3 vertices
             for (int i = 0; i < 3; i++) {
-                while (fgets(line, STL_LINE_BUFFER_SIZE, fp)) {
-                    p = skip_whitespace(line);
-                    if (*p == '\0') continue;
-
-                    if (strncmp(p, "vertex", 6) == 0) {
-                        sscanf(p, "vertex %f %f %f",
+                while (stl_detail_read_line(&line, line_buffer, STL_LINE_BUFFER_SIZE, fp)) {
+                    if (strncmp(line, "vertex", 6) == 0) {
+                        sscanf(line, "vertex %f %f %f",
                                &current.v[i].x, &current.v[i].y, &current.v[i].z);
                         break;
                     }
@@ -102,9 +108,8 @@ static bool load_stl_ascii(const char* filename, stl_model_t* model /* out */) {
 
             // Read "endloop" and "endfacet"
             int skipCount = 0;
-            while (skipCount < 2 && fgets(line, STL_LINE_BUFFER_SIZE, fp)) {
-                p = skip_whitespace(line);
-                if (*p != '\0') {
+            while (skipCount < 2 && stl_detail_read_line(&line, line_buffer, STL_LINE_BUFFER_SIZE, fp)) {
+                if (*line != '\0') {
                     skipCount++;
                 }
             }
