@@ -74,25 +74,13 @@ struct Viewer_3sd : IAddon {
 		// ウインドウとシーンを 1280x720 にリサイズ
 		Window::Resize(1280, 720);
 
-		// const char* filename = "../../bb-bem-msvc/input.txt";
-		const char* filename = "../../bb-bem-msvc/cube-ascii-1-8.stl";
-		if (bb_bem(filename, BB_COMPUTE_NAIVE, &m_bb_naive) == BB_OK &&
-			bb_bem(filename, BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK &&
-			bb_bem(filename, BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK
-		) {
-			varifyResult();
-			rebuildSphereList();
-		}
-		else {
-			std::cerr << "Error: Boundary element analysis failed: " << filename << std::endl;
-		}
+		calculate_bem();
 
 		return true;
 	}
 
 	~Viewer_3sd() override {
-		release_bb_result(&m_bb_naive);
-		release_bb_result(&m_bb_cuda);
+		release_bem();
 	}
 
 	bool update() override {
@@ -137,6 +125,10 @@ struct Viewer_3sd : IAddon {
 			rebuildSphereList();
 		}
 
+		if (SimpleGUI::Button(U"Re-compute", Scene::Size().withY(20).movedBy(-200, 0))) {
+			calculate_bem();
+		}
+
 		return true;
 	}
 
@@ -169,6 +161,29 @@ private:
 		}
 	}
 
+	void calculate_bem() {
+		release_bem();
+
+		const char* filename = "../../bb-bem-msvc/input.txt";
+		// const char* filename = "../../bb-bem-msvc/cube-ascii-1-8.stl";
+		if (bb_bem(filename, BB_COMPUTE_NAIVE, &m_bb_naive) == BB_OK &&
+			bb_bem(filename, BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK &&
+			bb_bem(filename, BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK
+		) {
+			varifyResult();
+			rebuildSphereList();
+		}
+		else {
+			std::cerr << "Error: Boundary element analysis failed: " << filename << std::endl;
+		}
+	}
+
+	void release_bem() {
+		release_bb_result(&m_bb_naive);
+		release_bb_result(&m_bb_cuda);
+		release_bb_result(&m_bb_cuda_wmma);
+	}
+
 	void rebuildSphereList() {
 		m_sphereList.clear();
 		const auto& bb_result = get_bb_result();
@@ -195,12 +210,15 @@ private:
 
 			centroid /= bb_result.input.nond_on_face;
 
-			const double sol = bb_result.sol[fc_id][m_currentBatch]; // TODO: インデックスの変更対応
+			const double sol = bb_result.sol[fc_id][m_currentBatch];
+
+			HSV color = sol > 0 ? Palette::Orangered.removeSRGBCurve() : Palette::Royalblue.removeSRGBCurve();
+			color.s *= Math::Abs(sol) / maxSolAbs;
 
 			m_sphereList.push_back({
 				.center = centroid * 10,
-				.radius = (Math::Abs(sol) / maxSolAbs) * 0.25,
-				.color = sol > 0 ? Palette::Orange.removeSRGBCurve() : Palette::Lightskyblue.removeSRGBCurve()
+				.radius = 0.25,
+				.color = color
 			});
 		}
 	}
