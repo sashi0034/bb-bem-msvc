@@ -164,8 +164,8 @@ private:
 	void calculate_bem() {
 		release_bem();
 
-		const char* filename = "../../bb-bem-msvc/input.txt";
-		// const char* filename = "../../bb-bem-msvc/cube-ascii-1-8.stl";
+		// const char* filename = "../../bb-bem-msvc/input.txt";
+		const char* filename = "../../bb-bem-msvc/cube-ascii-1-8.stl";
 		if (bb_bem(filename, BB_COMPUTE_NAIVE, &m_bb_naive) == BB_OK &&
 			bb_bem(filename, BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK &&
 			bb_bem(filename, BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK

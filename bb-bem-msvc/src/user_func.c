@@ -153,23 +153,21 @@ double rhs_vector_i_(
     const bb_props_t* props
 ) {
     if (*ndble_para_fc == 0) {
-        return 1.0;
+        int fi = *p_i;
 
-        // int fi = *p_i;
-        //
-        // int* face2node = props->face2node;
-        // vector3_t* np = props->np;
-        //
-        // // Coordinates of face fi for centroid z
-        // double zf_i[3];
-        // for (int k = 0; k < 3; k++) {
-        //     int node = face2node[fi * 3 + k];
-        //     zf_i[k] = np[node].z;
-        // }
-        //
-        // // Centroid of face fi 
-        // const double zp = (zf_i[0] + zf_i[1] + zf_i[2]) / 3.0;
-        // return zp;
+        int* face2node = props->face2node;
+        vector3_t* np = props->np;
+
+        // Coordinates of face fi for centroid z
+        double yf_i[3];
+        for (int k = 0; k < 3; k++) {
+            int node = face2node[fi * 3 + k];
+            yf_i[k] = np[node].y;
+        }
+
+        // Centroid of face fi 
+        const double yp = (yf_i[0] + yf_i[1] + yf_i[2]) / 3.0;
+        return (yp - 0.5) * (1.0 + *p_n);
     }
 
     return dble_para_fc[*p_i * *ndble_para_fc + 0];
