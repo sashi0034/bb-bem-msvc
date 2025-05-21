@@ -76,7 +76,7 @@ static void transpose_double_matrix(size_t rows, size_t cols, double** mat, doub
 
 // -----------------------------------------------
 
-#define NUMBER_ELEMENT_DOF  1;
+#define NUMBER_ELEMENT_DOF  1
 
 #define TOR 1e-8 // Tolerance for convergence
 
@@ -230,7 +230,7 @@ static bb_status_t read_input_from_stl(const char* filename, bb_input_t* input) 
     input->ndble_para_fc = 0;
 
     // Set value: para_batch
-    input->ndble_para_fc = 1;
+    input->para_batch = 16;
 
     printf("Number of nodes=%d Number of faces=%d\n", input->nond, input->nofc);
 
