@@ -146,11 +146,31 @@ double element_ij_(
 double rhs_vector_i_(
     const int* p_i,
     const int* p_n,
+    const int* nint_para_fc,
+    const int* int_para_fc, /* [nofc * nint_para_fc] */
+    const int* ndble_para_fc,
+    const double* dble_para_fc, /* [nofc * ndble_para_fc] */
     const bb_props_t* props
 ) {
-    if (props->ndble_para_fc == 0) {
-        return 1.0; // TODO
+    if (*ndble_para_fc == 0) {
+        return 1.0;
+
+        // int fi = *p_i;
+        //
+        // int* face2node = props->face2node;
+        // vector3_t* np = props->np;
+        //
+        // // Coordinates of face fi for centroid z
+        // double zf_i[3];
+        // for (int k = 0; k < 3; k++) {
+        //     int node = face2node[fi * 3 + k];
+        //     zf_i[k] = np[node].z;
+        // }
+        //
+        // // Centroid of face fi 
+        // const double zp = (zf_i[0] + zf_i[1] + zf_i[2]) / 3.0;
+        // return zp;
     }
 
-    return props->dble_para_fc[*p_i * props->ndble_para_fc + 0];
+    return dble_para_fc[*p_i * *ndble_para_fc + 0];
 }

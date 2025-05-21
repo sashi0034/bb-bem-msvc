@@ -18,13 +18,9 @@ typedef struct bb_props_t {
     int nond;
     int nofc;
     int nond_on_face;
-    int nint_para_fc;
-    int ndble_para_fc;
     int para_batch;
     vector3_t* np; /* [nond] */
     int* face2node; /* [nofc * nond_on_face] */
-    int* int_para_fc; /* [para_batch * nofc * nint_para_fc] */
-    double* dble_para_fc; /* [para_batch * nofc * ndble_para_fc] */
 } bb_props_t;
 
 /// @brief ユーザー側で定義される、計算対象要素における i, j 節点間の物理量 (例: 積分値) を返す関数
@@ -52,6 +48,10 @@ BB_USER_FUNC double element_ij_(
 BB_USER_FUNC double rhs_vector_i_(
     const int* p_i,
     const int* p_n,
+    const int* nint_para_fc,
+    const int* int_para_fc, /* [nofc * nint_para_fc] */
+    const int* ndble_para_fc,
+    const double* dble_para_fc, /* [nofc * ndble_para_fc] */
     const bb_props_t* props
 );
 

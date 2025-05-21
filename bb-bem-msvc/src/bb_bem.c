@@ -315,13 +315,9 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     props.nofc = input->nofc;
     props.nond = input->nond;
     props.nond_on_face = input->nond_on_face;
-    props.nint_para_fc = input->nint_para_fc;
-    props.ndble_para_fc = input->ndble_para_fc;
     props.para_batch = input->para_batch;
     props.np = &input->np[0];
     props.face2node = &input->face2node[0][0];
-    props.int_para_fc = input->int_para_fc ? &input->int_para_fc[0][0][0] : NULL;
-    props.dble_para_fc = input->dble_para_fc ? &input->dble_para_fc[0][0][0] : NULL;
 
     for (int i = 0; i < result->dim; i++) {
         for (int j = 0; j < result->dim; j++) {
@@ -331,7 +327,10 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
 
     for (int i = 0; i < result->dim; i++) {
         for (int n = 0; n < input->para_batch; n++) {
-            rhs[i][n] = rhs_vector_i_(&i, &n, &props);
+            const int* int_para_fc = input->int_para_fc ? &input->int_para_fc[n][0][0] : NULL;
+            const double* dble_para_fc = input->dble_para_fc ? &input->dble_para_fc[n][0][0] : NULL;
+            rhs[i][n] =
+                rhs_vector_i_(&i, &n, &input->nint_para_fc, int_para_fc, &input->ndble_para_fc, dble_para_fc, &props);
         }
     }
 
@@ -362,10 +361,13 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
 
 void release_bb_result(bb_result_t* result) {
     if (!result) return;
+    // -----------------------------------------------
 
     bb_input_t* input = &result->input;
+    if (!input) return;
+    // -----------------------------------------------
 
-    free(input->np);
+    if (input->np) free(input->np);
 
     if (input->face2node) {
         release_matrix(input->face2node);
@@ -383,7 +385,7 @@ void release_bb_result(bb_result_t* result) {
         free(input->dble_para_fc);
     }
 
-    release_matrix(result->sol);
+    if (result->sol) release_matrix(result->sol);
 
     input->np = NULL;
     input->face2node = NULL;
