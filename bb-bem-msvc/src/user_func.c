@@ -167,7 +167,7 @@ double rhs_vector_i_(
 
         // Centroid of face fi 
         const double yp = (yf_i[0] + yf_i[1] + yf_i[2]) / 3.0;
-        return (yp - 0.5) * (1.0 + *p_n);
+        return yp * (1.0 + *p_n);
     }
 
     return dble_para_fc[*p_i * *ndble_para_fc + 0];

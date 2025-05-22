@@ -207,6 +207,8 @@ private:
 		for (int fc_id = 0; fc_id < bb_input.nofc; ++fc_id) {
 			const double sol = bb_result.sol[fc_id][m_currentBatch];
 			maxSolAbs = Math::Max(maxSolAbs, Math::Abs(sol));
+
+			// std::cout << fc_id << ": " << sol << std::endl;
 		}
 
 		if (maxSolAbs == 0.0) maxSolAbs = 1.0;

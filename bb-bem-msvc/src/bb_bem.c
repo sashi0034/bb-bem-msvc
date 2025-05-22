@@ -338,6 +338,16 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
 
     const clock_t compute_start = clock(); // <-- Start time measurement
 
+#if 0
+    // pass the rhs vector through the solution (for debugging)
+    {
+        for (int i = 0; i < result->dim; i++) {
+            for (int n = 0; n < input->para_batch; n++) {
+                result->sol[i][n] = rhs[i][n];
+            }
+        }
+    }
+#else
     if (compute == BB_COMPUTE_NAIVE) {
         bicgstab_naive(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
     } else if (compute == BB_COMPUTE_CUDA) {
@@ -347,15 +357,7 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     } else {
         printf("Error: Unknown compute type\n");
     }
-
-    // pass the rhs vector through the solution
-    // {
-    //     for (int i = 0; i < result->dim; i++) {
-    //         for (int n = 0; n < input->para_batch; n++) {
-    //             result->sol[i][n] = rhs[i][n];
-    //         }
-    //     }
-    // }
+#endif
 
     result->compute_time = (double)(clock() - compute_start) / CLOCKS_PER_SEC; // <-- End time measurement
 
