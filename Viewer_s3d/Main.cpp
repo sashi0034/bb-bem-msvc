@@ -24,6 +24,11 @@ namespace
 		ColorF color;
 	};
 
+	struct TriangleData {
+		Mesh mesh;
+		ColorF color;
+	};
+
 	double compute_relative_error(const bb_result_t& a, const bb_result_t& b) {
 		if (a.dim != b.dim) {
 			return 0.0;
@@ -63,7 +68,8 @@ struct Viewer_3sd : IAddon {
 	bb_result_t m_bb_cuda{};
 	bb_result_t m_bb_cuda_wmma{};
 
-	Array<SphereData> m_sphereList{};
+	// Array<SphereData> m_sphereList{};
+	Array<TriangleData> m_triangleList{};
 
 	bb_compute_t m_currentCompute{};
 	int m_currentBatch{};
@@ -98,8 +104,13 @@ struct Viewer_3sd : IAddon {
 
 			Plane{Vec3{}.withY(-10.0), 64}.draw(m_planeTexture);
 
-			for (const auto& sphereData : m_sphereList) {
-				Sphere{sphereData.center, sphereData.radius}.draw(sphereData.color);
+			// for (const auto& sphereData : m_sphereList) {
+			// 	Sphere{sphereData.center, sphereData.radius}.draw(sphereData.color);
+			// }
+
+			const ScopedRenderStates3D rs3d{(RasterizerState::SolidCullNone)};
+			for (const auto& t : m_triangleList) {
+				t.mesh.draw(t.color);
 			}
 		}
 
@@ -187,7 +198,8 @@ private:
 	}
 
 	void rebuildSphereList() {
-		m_sphereList.clear();
+		// m_sphereList.clear();
+		m_triangleList.clear();
 		const auto& bb_result = get_bb_result();
 		const auto& bb_input = bb_result.input;
 
@@ -201,25 +213,54 @@ private:
 
 		for (int fc_id = 0; fc_id < bb_input.nofc; ++fc_id) {
 			// 各要素の重心を計算
-			Vec3 centroid{0.0, 0.0, 0.0};
-			for (int nd_id = 0; nd_id < bb_result.input.nond_on_face; nd_id++) {
-				centroid += Vec3{
-					bb_input.np[bb_input.face2node[fc_id][nd_id]].x,
-					bb_input.np[bb_input.face2node[fc_id][nd_id]].y,
-					bb_input.np[bb_input.face2node[fc_id][nd_id]].z
-				};
-			}
-
-			centroid /= bb_result.input.nond_on_face;
+			// Vec3 centroid{0.0, 0.0, 0.0};
+			// for (int nd_id = 0; nd_id < bb_result.input.nond_on_face; nd_id++) {
+			// 	centroid += Vec3{
+			// 		bb_input.np[bb_input.face2node[fc_id][nd_id]].x,
+			// 		bb_input.np[bb_input.face2node[fc_id][nd_id]].y,
+			// 		bb_input.np[bb_input.face2node[fc_id][nd_id]].z
+			// 	};
+			// }
+			//
+			// centroid /= bb_result.input.nond_on_face;
 
 			const double sol = bb_result.sol[fc_id][m_currentBatch];
 
 			HSV color = sol > 0 ? Palette::Orangered.removeSRGBCurve() : Palette::Royalblue.removeSRGBCurve();
-			color.s *= Math::Abs(sol) / maxSolAbs;
+			// color.s = Math::Lerp(0.3, 1.0, Math::Abs(sol) / maxSolAbs);
+			color.s = Math::Abs(sol) / maxSolAbs;
 
-			m_sphereList.push_back({
-				.center = centroid * 10,
-				.radius = 0.25,
+			// m_sphereList.push_back({
+			// 	.center = centroid * 10,
+			// 	.radius = 0.25,
+			// 	.color = color
+			// });
+
+			Array<Vec3> verticePositions{};
+			Array<Vertex3D> vertices{};
+			for (int nd_id = 0; nd_id < bb_result.input.nond_on_face; nd_id++) {
+				Vec3 p{};
+				p.x = bb_input.np[bb_input.face2node[fc_id][nd_id]].x;
+				p.y = bb_input.np[bb_input.face2node[fc_id][nd_id]].y;
+				p.z = bb_input.np[bb_input.face2node[fc_id][nd_id]].z;
+				verticePositions.push_back(p);
+
+				Vertex3D v{};
+				v.pos = p * 10;
+				vertices.push_back(v);
+			}
+
+			// const bool isClockwise =
+			// 	Vec3{verticePositions[1] - verticePositions[0]}.cross(verticePositions[2] - verticePositions[0]).y > 0;
+			//
+			// const Array indices = {
+			// 	isClockwise ? TriangleIndex32{0, 1, 2} : TriangleIndex32{0, 2, 1}, // FIXME
+			// };
+
+			const Array indices = {TriangleIndex32{0, 2, 1}}; // FIXME
+
+			m_triangleList.push_back({
+				.mesh = Mesh{MeshData{vertices, indices},},
 				.color = color
 			});
 		}
@@ -231,7 +272,8 @@ private:
 		Console.writeln(
 			U"Relative error between Naive and Cuda: {}"_fmt(compute_relative_error(m_bb_naive, m_bb_cuda)));
 		Console.writeln(
-			U"Relative error between Naive and Cuda-WMMA: {}"_fmt(compute_relative_error(m_bb_naive, m_bb_cuda_wmma)));
+			U"Relative error between Naive and Cuda-WMMA: {}"_fmt(
+				compute_relative_error(m_bb_naive, m_bb_cuda_wmma)));
 
 		Console.writeln(
 			U"Compute time (Naive): {} sec"_fmt(m_bb_naive.compute_time));
