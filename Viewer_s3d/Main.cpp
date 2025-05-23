@@ -231,6 +231,7 @@ private:
 			HSV color = sol > 0 ? Palette::Orangered.removeSRGBCurve() : Palette::Royalblue.removeSRGBCurve();
 			// color.s = Math::Lerp(0.3, 1.0, Math::Abs(sol) / maxSolAbs);
 			color.s = Math::Abs(sol) / maxSolAbs;
+			color.v = 1.0;
 
 			// m_sphereList.push_back({
 			// 	.center = centroid * 10,
