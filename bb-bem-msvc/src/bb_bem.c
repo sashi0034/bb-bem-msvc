@@ -7,6 +7,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <time.h>
+#include <string.h>
 
 #include "stl_loader.h"
 
