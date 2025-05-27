@@ -3,6 +3,10 @@
 
 #include <stdbool.h>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif // __cplusplus 
+
 typedef struct {
     float x, y, z;
 } stl_vector3_t;
@@ -20,5 +24,9 @@ typedef struct {
 void free_stl_model(stl_model_t* model);
 
 bool load_stl_ascii(const char* filename, stl_model_t* model /* out */);
+
+#if defined(__cplusplus)
+}
+#endif // __cplusplus
 
 #endif // STL_LOADER_H

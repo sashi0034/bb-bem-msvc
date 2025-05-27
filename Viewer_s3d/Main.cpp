@@ -290,6 +290,7 @@ private:
 void Main() {
 	Console.open();
 
+#ifdef _DEBUG
 	Util::InitLivePPAddon();
 
 	Addon::Register<Viewer_3sd>(U"Viewer_3sd");
