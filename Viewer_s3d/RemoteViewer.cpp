@@ -1,6 +1,8 @@
 ﻿#include "stdafx.h"
 #include "RemoteViewer.h"
 
+#include <iso646.h>
+
 #include "../bb-bem-msvc/src/bb_bem.h"
 #include "../bb-bem-msvc/src/stl_wrapper.hpp"
 
@@ -129,10 +131,39 @@ struct RemoteViewer : IAddon {
 
 private:
 	void rebuildModel() {
-		const std::string filename = "../../input_data/cube-ascii-1-8.stl";
+		const std::string modelPath = "../../input_data/cube-ascii-1-8.stl";
+		const std::string outputPath = "../../output_data/cube-ascii-1-8.out";
 
-		STLModel model{filename};
-		for (const auto& facet : model.facets()) {
+		Array<double> solArray{};
+		TextReader outputReader{Unicode::Widen(outputPath)};
+		while (true) {
+			const auto line = outputReader.readLine();
+			if (not line) break;
+
+			solArray.push_back(ParseFloat<double>(*line));
+		}
+
+		const STLModel model{modelPath};
+		if (model.facets().size() > solArray.size()) {
+			std::cerr
+				<< "Error: The number of facets in the STL model is less than the number of solutions provided."
+				<< std::endl;
+			return;
+		}
+
+		solArray.resize(model.facets().size());
+
+		double maxSolAbs{};
+		for (int i = 0; i < solArray.size(); ++i) {
+			const double sol = solArray[i];
+			maxSolAbs = Math::Max(maxSolAbs, Math::Abs(sol));
+
+			// std::cout << i << ": " << sol << std::endl;
+		}
+
+		const auto facets = model.facets();
+		for (size_t i = 0; i < facets.size(); ++i) {
+			const stl_facet_t& facet = facets[i];
 			Array<Vertex3D> vertices{};
 			for (int j = 0; j < 3; ++j) {
 				const stl_vector3_t& v = facet.v[j];
@@ -145,8 +176,11 @@ private:
 
 			const Array indices = {TriangleIndex32{0, 1, 2}};
 
-			HSV color = Palette::Orangered.removeSRGBCurve();
-			// sol > 0 ? Palette::Orangered.removeSRGBCurve() : Palette::Royalblue.removeSRGBCurve();
+			const double sol = solArray[i];
+			HSV color =
+				sol > 0 ? Palette::Orangered.removeSRGBCurve() : Palette::Royalblue.removeSRGBCurve();
+			color.s = Math::Abs(sol) / maxSolAbs;
+			color.v = 1.0;
 
 			m_triangleList.push_back({
 				.mesh = Mesh{MeshData{vertices, indices}},
