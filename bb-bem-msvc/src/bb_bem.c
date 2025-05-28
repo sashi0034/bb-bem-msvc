@@ -336,11 +336,13 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     result->dim = input->nofc * NUMBER_ELEMENT_DOF;
 
     printf("Matrix size: %dx%d\n", result->dim, result->dim);
+    fflush(stdout);
 
     double** A = (double**)allocate_matrix(result->dim, result->dim, sizeof(double));
     if (!A) return BB_ERR_MEMORY_ALLOC;
 
     printf("RHS vector size: %dx%d\n", result->dim, input->para_batch);
+    fflush(stdout);
 
     double** rhs = (double**)allocate_matrix(result->dim, input->para_batch, sizeof(double));
     if (!rhs) return BB_ERR_MEMORY_ALLOC;
