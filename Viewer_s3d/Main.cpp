@@ -14,8 +14,11 @@ void Main() {
 	Util::InitLivePPAddon();
 #endif
 
-	// Viewer_s3d::RegisterStandaloneViewer();
+#if 0
+	Viewer_s3d::RegisterStandaloneViewer();
+#else
 	Viewer_s3d::RegisterRemoteViewer();
+#endif
 
 	while (System::Update()) {
 	}

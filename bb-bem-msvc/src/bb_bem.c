@@ -9,6 +9,8 @@
 #include <time.h>
 #include <string.h>
 
+#include <omp.h>
+
 #include "stl_loader.h"
 
 #include "bb_bem.h"
@@ -367,20 +369,43 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     props.np = &input->np[0];
     props.face2node = &input->face2node[0][0];
 
-    for (int i = 0; i < result->dim; i++) {
-        for (int j = 0; j < result->dim; j++) {
-            A[i][j] = element_ij_(&i, &j, &props);
-        }
+    // -----------------------------------------------
+
+    printf("Begin generating the matrix and the RHS vector with %d threads.\n", omp_get_max_threads());
+    omp_set_num_threads(omp_get_max_threads());
+
+    const int dim = result->dim;
+    const int A_size = dim * dim;
+
+    int idx;
+#pragma omp parallel for private(idx) schedule(dynamic)
+    for (idx = 0; idx < A_size; idx++) {
+        const int i = idx / dim;
+        const int j = idx % dim;
+        A[i][j] = element_ij_(&i, &j, &props);
     }
 
-    for (int i = 0; i < result->dim; i++) {
-        for (int n = 0; n < input->para_batch; n++) {
-            const int* int_para_fc = input->int_para_fc ? &input->int_para_fc[n][0][0] : NULL;
-            const double* dble_para_fc = input->dble_para_fc ? &input->dble_para_fc[n][0][0] : NULL;
-            rhs[i][n] =
-                rhs_vector_i_(&i, &n, &input->nint_para_fc, int_para_fc, &input->ndble_para_fc, dble_para_fc, &props);
-        }
+    printf("Matrix A was generated.\n");
+    fflush(stdout);
+
+    // -----------------------------------------------
+
+    const int para_batch = input->para_batch;
+    const int rhs_vector_size = dim * para_batch;
+
+#pragma omp parallel for private(idx) schedule(dynamic)
+    for (idx = 0; idx < rhs_vector_size; idx++) {
+        const int i = idx / para_batch;
+        const int n = idx % para_batch;
+
+        const int* int_para_fc = input->int_para_fc ? &input->int_para_fc[n][0][0] : NULL;
+        const double* dble_para_fc = input->dble_para_fc ? &input->dble_para_fc[n][0][0] : NULL;
+
+        rhs[i][n] =
+            rhs_vector_i_(&i, &n, &input->nint_para_fc, int_para_fc, &input->ndble_para_fc, dble_para_fc, &props);
     }
+
+    // -----------------------------------------------
 
     printf("Linear system was generated.\n");
     fflush(stdout);
