@@ -140,6 +140,7 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">BB_NO_MAIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">BB_NO_MAIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClCompile Include="RemoteViewer.cpp" />
     <ClCompile Include="StandaloneViewer.cpp" />
     <CudaCompile Include="..\bb-bem-msvc\src\bicgstab_cuda.cu">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
@@ -401,6 +402,7 @@
     <ClInclude Include="..\bb-bem-msvc\src\stl_loader.h" />
     <ClInclude Include="..\bb-bem-msvc\src\stl_wrapper.hpp" />
     <ClInclude Include="LivePPAddon.h" />
+    <ClInclude Include="RemoteViewer.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="StandaloneViewer.h" />
   </ItemGroup>

@@ -1,5 +1,4 @@
 ﻿#include "stdafx.h"
-
 #include "StandaloneViewer.h"
 
 #include "../bb-bem-msvc/src/bb_bem.h"
@@ -76,11 +75,6 @@ struct StandaloneViewer : IAddon {
 	int m_currentBatch{};
 
 	bool init() override {
-		Window::SetTitle(U"Viewer_3sd");
-
-		// ウインドウとシーンを 1280x720 にリサイズ
-		Window::Resize(1280, 720);
-
 		calculate_bem();
 
 		return true;
@@ -129,12 +123,12 @@ struct StandaloneViewer : IAddon {
 
 		if (SimpleGUI::Button(U"{}"_fmt(getComputeName()), Vec2{20, 20})) {
 			m_currentCompute = static_cast<bb_compute_t>((m_currentCompute + 1) % (BB_COMPUTE_CUDA_WMMA + 1));
-			rebuildSphereList();
+			rebuildTriangleList();
 		}
 
 		if (SimpleGUI::Button(U"Batch {}"_fmt(m_currentBatch), Vec2{20, 60})) {
 			m_currentBatch = (m_currentBatch + 1) % m_bb_naive.input.para_batch;
-			rebuildSphereList();
+			rebuildTriangleList();
 		}
 
 		if (SimpleGUI::Button(U"Re-compute", Scene::Size().withY(20).movedBy(-200, 0))) {
@@ -187,7 +181,7 @@ private:
 			bb_bem(filename, BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK
 		) {
 			varifyResult();
-			rebuildSphereList();
+			rebuildTriangleList();
 		}
 		else {
 			std::cerr << "Error: Boundary element analysis failed: " << filename << std::endl;
@@ -200,7 +194,7 @@ private:
 		release_bb_result(&m_bb_cuda_wmma);
 	}
 
-	void rebuildSphereList() {
+	void rebuildTriangleList() {
 		// m_sphereList.clear();
 		m_triangleList.clear();
 		const auto& bb_result = get_bb_result();

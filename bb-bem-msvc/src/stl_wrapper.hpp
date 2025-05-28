@@ -13,6 +13,8 @@ inline namespace stl_wrapper
 
         STLModel(std::string_view filename);
 
+        bool isValid() const;
+
         std::span<const stl_facet_t> facets() const;
 
     private:
