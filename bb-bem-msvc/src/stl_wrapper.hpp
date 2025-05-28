@@ -2,6 +2,8 @@
 #define STL_WRAPPER_HPP
 
 #include <span>
+#include <memory>
+#include <string_view>
 
 #include "stl_loader.h"
 

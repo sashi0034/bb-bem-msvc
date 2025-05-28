@@ -167,7 +167,7 @@
       </ForcedIncludeFiles>
       <CodeGeneration>compute_80,sm_80;</CodeGeneration>
     </CudaCompile>
-    <ClCompile Include="..\bb-bem-msvc\src\stl_loder.c">
+    <ClCompile Include="..\bb-bem-msvc\src\stl_loader.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
