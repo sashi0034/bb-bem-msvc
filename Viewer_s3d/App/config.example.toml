@@ -5,3 +5,9 @@ use_remote_viewer = false
 
 # Input file path for StandaloneViewer
 input_path = "../../input_data/input.txt"
+
+# Model file path for RemoteViewer
+remote_model_path = "../../input_data/input.stl"
+
+# Output file path for RemoteViewer
+remote_output_path = "../../output_data/input.out"

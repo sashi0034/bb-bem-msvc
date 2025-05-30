@@ -3,6 +3,7 @@
 
 #include <iso646.h>
 
+#include "TomlConfigValueWrapper.h"
 #include "../bb-bem-msvc/src/bb_bem.h"
 #include "../bb-bem-msvc/src/stl_wrapper.hpp"
 
@@ -131,9 +132,8 @@ struct RemoteViewer : IAddon {
 
 private:
 	void rebuildModel() {
-		// const std::string modelPath = "../../input_data/cube-ascii-1-8.stl";
-		const std::string modelPath = "../../input_data/cylinder.stl";
-		const std::string outputPath = "../../output_data/cube-ascii-1-8.out";
+		const std::string modelPath = Util::GetTomlConfigValueOf<String>(U"remote_model_path").toUTF8();
+		const std::string outputPath = Util::GetTomlConfigValueOf<String>(U"remote_output_path").toUTF8();
 
 		Array<double> solArray{};
 		TextReader outputReader{Unicode::Widen(outputPath)};
