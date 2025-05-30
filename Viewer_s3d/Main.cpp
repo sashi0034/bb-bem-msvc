@@ -3,6 +3,7 @@
 #include "LivePPAddon.h"
 #include "RemoteViewer.h"
 #include "StandaloneViewer.h"
+#include "TomlConfigValueWrapper.h"
 
 void Main() {
 	Console.open();
@@ -14,11 +15,14 @@ void Main() {
 	Util::InitLivePPAddon();
 #endif
 
-#if 0
-	Viewer_s3d::RegisterStandaloneViewer();
-#else
-	Viewer_s3d::RegisterRemoteViewer();
-#endif
+	Util::InitTomlConfigValueAddon();
+
+	if (Util::GetTomlConfigValueOf<bool>(U"use_remote_viewer")) {
+		Viewer_s3d::RegisterRemoteViewer();
+	}
+	else {
+		Viewer_s3d::RegisterStandaloneViewer();
+	}
 
 	while (System::Update()) {
 	}

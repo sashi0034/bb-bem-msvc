@@ -131,7 +131,8 @@ struct RemoteViewer : IAddon {
 
 private:
 	void rebuildModel() {
-		const std::string modelPath = "../../input_data/cube-ascii-1-8.stl";
+		// const std::string modelPath = "../../input_data/cube-ascii-1-8.stl";
+		const std::string modelPath = "../../input_data/cylinder.stl";
 		const std::string outputPath = "../../output_data/cube-ascii-1-8.out";
 
 		Array<double> solArray{};

@@ -1,0 +1,7 @@
+[config]
+
+# RemoteViewer or StandaloneViewer
+use_remote_viewer = false
+
+# Input file path for StandaloneViewer
+input_path = "../../input_data/input.txt"

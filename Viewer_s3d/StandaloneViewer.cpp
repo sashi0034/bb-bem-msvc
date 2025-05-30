@@ -1,6 +1,7 @@
 ﻿#include "stdafx.h"
 #include "StandaloneViewer.h"
 
+#include "TomlConfigValueWrapper.h"
 #include "../bb-bem-msvc/src/bb_bem.h"
 
 namespace
@@ -170,15 +171,10 @@ private:
 	void calculate_bem() {
 		release_bem();
 
-		// const char* filename = "../../input_data/input.txt";
-		const char* filename = "../../input_data/cube-ascii-1-8.stl";
-		// const char* filename = "../../input_data/test_world_1_1.stl";
-		// const char* filename = "../../input_data/test_world_1_2.stl";
-		// const char* filename = "../../input_data/test_world_1_3.stl";
-		// const char* filename = "../../input_data/cube_100x100x100.stl";
-		if (bb_bem(filename, BB_COMPUTE_NAIVE, &m_bb_naive) == BB_OK &&
-			bb_bem(filename, BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK &&
-			bb_bem(filename, BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK
+		const std::string filename = Util::GetTomlConfigValueOf<String>(U"input_path").toUTF8();;
+		if (bb_bem(filename.data(), BB_COMPUTE_NAIVE, &m_bb_naive) == BB_OK &&
+			bb_bem(filename.data(), BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK &&
+			bb_bem(filename.data(), BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK
 		) {
 			varifyResult();
 			rebuildTriangleList();

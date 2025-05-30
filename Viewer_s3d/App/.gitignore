@@ -4,3 +4,4 @@ example
 engine/shader/glsl
 *.exe
 
+config.toml
