@@ -14,7 +14,7 @@ namespace
 		constexpr int step_32 = 32;
 		for (int x = 0; x < texture.width(); x += step_32) {
 			for (int y = 0; y < texture.height(); y += step_32) {
-				RectF{Vec2{x, y}, Vec2{step_32, step_32}}.drawFrame(1.0, ColorF{0.7}.removeSRGBCurve());
+				RectF{Vec2{x, y}, Vec2{step_32, step_32}}.drawFrame(0.5, ColorF{0.7}.removeSRGBCurve());
 			}
 		}
 

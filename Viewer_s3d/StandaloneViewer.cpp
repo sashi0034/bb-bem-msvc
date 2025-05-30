@@ -7,12 +7,12 @@
 namespace
 {
 	RenderTexture getPlaneTexture() {
-		RenderTexture texture{512, 512, TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::No, HasMipMap::Yes};
+		RenderTexture texture{1024, 1024, TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::No, HasMipMap::Yes};
 		const ScopedRenderTarget2D rt{texture.clear(ColorF{0.9}.removeSRGBCurve())};
-		constexpr int step_32 = 32;
-		for (int x = 0; x < texture.width(); x += step_32) {
-			for (int y = 0; y < texture.height(); y += step_32) {
-				RectF{Vec2{x, y}, Vec2{step_32, step_32}}.drawFrame(1.0, ColorF{0.7}.removeSRGBCurve());
+		constexpr int step_64 = 64;
+		for (int x = 0; x < texture.width(); x += step_64) {
+			for (int y = 0; y < texture.height(); y += step_64) {
+				RectF{Vec2{x, y}, Vec2{step_64, step_64}}.drawFrame(1.0, ColorF{0.7}.removeSRGBCurve());
 			}
 		}
 
