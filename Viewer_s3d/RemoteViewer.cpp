@@ -22,8 +22,8 @@ namespace
 		return texture;
 	}
 
-	struct TriangleData {
-		Mesh mesh;
+	struct ModelData {
+		Sphere sphere;
 		ColorF color;
 	};
 
@@ -62,7 +62,7 @@ struct RemoteViewer : IAddon {
 	// 前後移動: [W][S], 左右移動: [A][D], 上下移動: [E][X], 注視点移動: アローキー, 加速: [Shift][Ctrl]
 	DebugCamera3D m_camera{m_renderTexture.size(), 30_deg, Vec3{10, 16, -32}};
 
-	Array<TriangleData> m_triangleList{};
+	Array<ModelData> m_modelList{};
 
 	bb_compute_t m_currentCompute{};
 	int m_currentBatch{};
@@ -96,8 +96,8 @@ struct RemoteViewer : IAddon {
 			// }
 
 			const ScopedRenderStates3D rs3d{(RasterizerState::SolidCullNone)};
-			for (const auto& t : m_triangleList) {
-				t.mesh.draw(t.color);
+			for (const auto& model : m_modelList) {
+				(void)model.sphere.draw(model.color);
 			}
 		}
 
@@ -133,60 +133,31 @@ struct RemoteViewer : IAddon {
 private:
 	void rebuildModel() {
 		const std::string modelPath = Util::GetTomlConfigValueOf<String>(U"remote_model_path").toUTF8();
-		const std::string outputPath = Util::GetTomlConfigValueOf<String>(U"remote_output_path").toUTF8();
-
-		Array<double> solArray{};
-		TextReader outputReader{Unicode::Widen(outputPath)};
-		while (true) {
-			const auto line = outputReader.readLine();
-			if (not line) break;
-
-			solArray.push_back(ParseFloat<double>(*line));
-		}
 
 		const STLModel model{modelPath};
-		if (model.facets().size() > solArray.size()) {
-			std::cerr
-				<< "Error: The number of facets in the STL model is less than the number of solutions provided."
-				<< std::endl;
-			return;
-		}
 
-		solArray.resize(model.facets().size());
-
-		double maxSolAbs{};
-		for (int i = 0; i < solArray.size(); ++i) {
-			const double sol = solArray[i];
-			maxSolAbs = Math::Max(maxSolAbs, Math::Abs(sol));
-
-			// std::cout << i << ": " << sol << std::endl;
-		}
+		Array<Vec3> centerPositions{};
 
 		const auto facets = model.facets();
 		for (size_t i = 0; i < facets.size(); ++i) {
 			const stl_facet_t& facet = facets[i];
-			Array<Vertex3D> vertices{};
+			Vec3 p{};
 			for (int j = 0; j < 3; ++j) {
 				const stl_vector3_t& v = facet.v[j];
-				const Vec3 p{v.x, v.y, v.z};
-
-				Vertex3D vertex{};
-				vertex.pos = p * 10;
-				vertices.push_back(vertex);
+				p += Vec3{v.x, v.y, v.z};
 			}
 
-			const Array indices = {TriangleIndex32{0, 1, 2}};
+			centerPositions.push_back(10 * p / 3.0);
+		}
 
-			const double sol = solArray[i];
-			HSV color =
-				sol > 0 ? Palette::Orangered.removeSRGBCurve() : Palette::Royalblue.removeSRGBCurve();
-			color.s = Math::Abs(sol) / maxSolAbs;
-			color.v = 1.0;
-
-			m_triangleList.push_back({
-				.mesh = Mesh{MeshData{vertices, indices}},
-				.color = color
-			});
+		m_modelList.clear();
+		for (size_t i = 0; i < centerPositions.size(); ++i) {
+			m_modelList.emplace_back(
+				ModelData{
+					.sphere = Sphere{centerPositions[i], 0.5},
+					.color = Palette::Aliceblue
+				}
+			);
 		}
 	}
 };
