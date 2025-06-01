@@ -3,6 +3,7 @@
 
 #include <iso646.h>
 
+#include "Clustering.h"
 #include "TomlConfigValueWrapper.h"
 #include "../bb-bem-msvc/src/bb_bem.h"
 #include "../bb-bem-msvc/src/stl_wrapper.hpp"
@@ -67,6 +68,8 @@ struct RemoteViewer : IAddon {
 	bb_compute_t m_currentCompute{};
 	int m_currentBatch{};
 
+	int m_clusterMethod{};
+
 	bool init() override {
 		rebuildModel();
 
@@ -113,24 +116,34 @@ struct RemoteViewer : IAddon {
 			Shader::LinearToScreen(m_renderTexture);
 		}
 
-		// if (SimpleGUI::Button(U"{}"_fmt(getComputeName()), Vec2{20, 20})) {
-		// 	m_currentCompute = static_cast<bb_compute_t>((m_currentCompute + 1) % (BB_COMPUTE_CUDA_WMMA + 1));
-		// 	rebuildSphereList();
-		// }
+		if (SimpleGUI::Button(U"{}"_fmt(getClusteringName(m_clusterMethod)), Vec2{20, 20})) {
+			m_clusterMethod = (m_clusterMethod + 1) % 3;
+			rebuildModel();
+		}
+
 		//
 		// if (SimpleGUI::Button(U"Batch {}"_fmt(m_currentBatch), Vec2{20, 60})) {
 		// 	m_currentBatch = (m_currentBatch + 1) % m_bb_naive.input.para_batch;
 		// 	rebuildSphereList();
 		// }
 
-		if (SimpleGUI::Button(U"Re-compute", Scene::Size().withY(20).movedBy(-200, 0))) {
-			rebuildModel();
-		}
+		// if (SimpleGUI::Button(U"Re-compute", Scene::Size().withY(20).movedBy(-200, 0))) {
+		// 	rebuildModel();
+		// }
 
 		return true;
 	}
 
 private:
+	static String getClusteringName(int index) {
+		switch (index) {
+		case 0: return U"Single Linkage";
+		case 1: return U"Average Linkage";
+		case 2: return U"K-Means";
+		default: return U"Unknown";
+		}
+	}
+
 	void rebuildModel() {
 		const std::string modelPath = Util::GetTomlConfigValueOf<String>(U"remote_model_path").toUTF8();
 
@@ -150,12 +163,36 @@ private:
 			centerPositions.push_back(10 * p / 3.0);
 		}
 
+		Array clusterColors = {
+			Palette::Orangered,
+			Palette::Royalblue,
+			Palette::Limegreen,
+			Palette::Gold,
+			Palette::Violet,
+			Palette::Cyan,
+			Palette::Magenta
+		};
+
+		Array<int> clusterIndices{};
+		switch (m_clusterMethod) {
+		case 0:
+			clusterIndices = Clustering::ClusteringSingleLinkage(centerPositions, clusterColors.size());
+			break;
+		case 1:
+			clusterIndices = Clustering::ClusteringAverageLinkage(centerPositions, clusterColors.size());
+			break;
+		case 2:
+			clusterIndices = Clustering::ClusteringKMeans(centerPositions, clusterColors.size());
+			break;
+		default: break;
+		}
+
 		m_modelList.clear();
 		for (size_t i = 0; i < centerPositions.size(); ++i) {
 			m_modelList.emplace_back(
 				ModelData{
 					.sphere = Sphere{centerPositions[i], 0.5},
-					.color = Palette::Aliceblue
+					.color = clusterColors[clusterIndices[i]]
 				}
 			);
 		}
