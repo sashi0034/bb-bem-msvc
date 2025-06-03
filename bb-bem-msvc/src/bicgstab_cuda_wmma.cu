@@ -65,8 +65,8 @@ static constexpr int WMMA_K = 4;
 // Kernel: Q[row, n] = sum_col A[row, col] * P[col, n]
 // All stored in row-major in global memory.
 __global__ void wmma_matvec(
-    int batch, /* 16-aligned */
-    int dim, /* 16-aligned */
+    int batch, /* 8-aligned */
+    int dim, /* 8-aligned */
     const double* __restrict__ A /* [dim * dim] */,
     const double* __restrict__ P /* [dim * batch] */,
     double* __restrict__ Q /* out [dim * batch] */
@@ -97,8 +97,8 @@ __global__ void wmma_matvec(
 }
 
 static void launch_wmma_matvec(
-    int batch, /* 16-aligned */
-    int dim, /* 16-aligned */
+    int batch, /* 8-aligned */
+    int dim, /* 8-aligned */
     const double* d_A /* [dim * dim] */,
     const double* d_P /* [dim * batch] */,
     double* d_Q /* out [dim * batch] */

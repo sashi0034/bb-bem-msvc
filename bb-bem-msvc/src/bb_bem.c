@@ -118,8 +118,8 @@ static void transpose_double_matrix(size_t rows, size_t cols, double** mat, doub
     }
 }
 
-static int align16(int size) {
-    return (size + 15) & ~15;
+static int align8(int size) {
+    return (size + 7) & ~7;
 }
 
 // -----------------------------------------------
@@ -156,7 +156,7 @@ static bb_status_t read_input_from_file(const char* filename, bb_input_t* input)
     // Read the number of faces from an input data file: nofc  
     if (fscanf(fp, "%d", &input->nofc_unaligned) != 1) goto fail;
 
-    input->nofc = align16(input->nofc_unaligned);
+    input->nofc = align8(input->nofc_unaligned);
 
     // Read the number of nodes on each face from an input data file: nond_on_face  
     if (fscanf(fp, "%d", &input->nond_on_face) != 1) goto fail;
@@ -170,7 +170,7 @@ static bb_status_t read_input_from_file(const char* filename, bb_input_t* input)
     // Read the number of parameters set on each face from an input data file: para_batch
     if (fscanf(fp, "%d", &input->para_batch_unaligned) != 1) goto fail;
 
-    input->para_batch = align16(input->para_batch_unaligned);
+    input->para_batch = align8(input->para_batch_unaligned);
 
     printf("Number of nodes=%d Number of faces=%d (%d)\n", input->nond, input->nofc, input->nofc_unaligned);
 
@@ -271,7 +271,7 @@ static bb_status_t read_input_from_stl(const char* filename, bb_input_t* input) 
 
     // Set value: nofc
     input->nofc_unaligned = model.num_facets;
-    input->nofc = align16(input->nofc_unaligned);
+    input->nofc = align8(input->nofc_unaligned);
 
     // Set value: nond_on_face  
     input->nond_on_face = 3;
@@ -283,8 +283,8 @@ static bb_status_t read_input_from_stl(const char* filename, bb_input_t* input) 
     input->ndble_para_fc = 0;
 
     // Set value: para_batch
-    input->para_batch_unaligned = 16;
-    input->para_batch = align16(input->para_batch_unaligned);
+    input->para_batch_unaligned = 8;
+    input->para_batch = align8(input->para_batch_unaligned);
 
     printf("Number of nodes=%d Number of faces=%d\n", input->nond, input->nofc);
 
