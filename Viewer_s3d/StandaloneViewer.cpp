@@ -32,7 +32,7 @@ namespace
 
 	double compute_relative_error(const bb_result_t& a, const bb_result_t& b) {
 		if (a.dim != b.dim) {
-			return 0.0;
+			return -1.0;
 		}
 
 		double a_b_2{};
@@ -171,17 +171,25 @@ private:
 	void calculate_bem() {
 		release_bem();
 
+		if (not calculate_bem_internal()) {
+			std::cerr << "Error: Boundary element analysis failed." << std::endl;
+			return;
+		}
+
+		varifyResult();
+		rebuildTriangleList();
+	}
+
+	bool calculate_bem_internal() {
 		const std::string filename = Util::GetTomlConfigValueOf<String>(U"input_path").toUTF8();;
-		if (bb_bem(filename.data(), BB_COMPUTE_NAIVE, &m_bb_naive) == BB_OK &&
-			bb_bem(filename.data(), BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK &&
-			bb_bem(filename.data(), BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK
-		) {
-			varifyResult();
-			rebuildTriangleList();
+
+		if (not Util::GetTomlConfigValueOf<bool>(U"skip_naive")) {
+			if (bb_bem(filename.data(), BB_COMPUTE_NAIVE, &m_bb_naive) != BB_OK) return false;
 		}
-		else {
-			std::cerr << "Error: Boundary element analysis failed: " << filename << std::endl;
-		}
+
+		if (bb_bem(filename.data(), BB_COMPUTE_CUDA, &m_bb_cuda) != BB_OK) return false;
+		if (bb_bem(filename.data(), BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) != BB_OK) return false;
+		return true;
 	}
 
 	void release_bem() {
@@ -270,6 +278,9 @@ private:
 		Console.writeln(
 			U"Relative error between Naive and Cuda-WMMA: {}"_fmt(
 				compute_relative_error(m_bb_naive, m_bb_cuda_wmma)));
+		Console.writeln(
+			U"Relative error between Cuda and Cuda-WMMA: {}"_fmt(
+				compute_relative_error(m_bb_cuda, m_bb_cuda_wmma)));
 
 		Console.writeln(
 			U"Compute time (Naive): {} sec"_fmt(m_bb_naive.compute_time));
