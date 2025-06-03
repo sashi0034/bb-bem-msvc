@@ -60,6 +60,8 @@ int main(int argc, char* argv[]) {
 
     bb_bem(input_file, compute_mode, &result);
 
+    printf("Compute time: %.6f\n", result.compute_time);
+
     // ----------------------------------------------- fp
     FILE* fp = fopen(output_file, "w");
     if (!fp) {
