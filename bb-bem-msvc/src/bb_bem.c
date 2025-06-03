@@ -122,6 +122,32 @@ static int align8(int size) {
     return (size + 7) & ~7;
 }
 
+#ifdef _WIN32
+typedef clock_t measurement_t;
+#else
+typedef struct timespec measurement_t;
+#endif
+
+static measurement_t start_measurement(void) {
+#ifdef _WIN32
+    return clock();
+#else
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return t;
+#endif
+}
+
+static double end_measurement(measurement_t start) {
+#ifdef _WIN32
+    return (double)(clock() - start) / CLOCKS_PER_SEC;
+#else
+    struct timespec end;
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    return (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec) * 1e-9;
+#endif
+}
+
 // -----------------------------------------------
 
 #define NUMBER_ELEMENT_DOF  1
@@ -433,7 +459,7 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     printf("Linear system was generated.\n");
     fflush(stdout);
 
-    const clock_t compute_start = clock(); // <-- Start time measurement
+    const measurement_t compute_start = start_measurement(); // <-- Start time measurement 
 
 #if 0
     // pass the rhs vector through the solution (for debugging)
@@ -456,7 +482,7 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     }
 #endif
 
-    result->compute_time = (double)(clock() - compute_start) / CLOCKS_PER_SEC; // <-- End time measurement
+    result->compute_time = end_measurement(compute_start); // <-- End time measurement
 
     printf("Completed\n");
 
