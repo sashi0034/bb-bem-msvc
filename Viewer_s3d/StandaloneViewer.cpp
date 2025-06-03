@@ -38,7 +38,7 @@ namespace
 		double a_b_2{};
 		double a_2{};
 		for (int i = 0; i < a.dim; ++i) {
-			for (int n = 0; n < a.input.para_batch; ++n) {
+			for (int n = 0; n < a.input.para_batch_unaligned; ++n) {
 				a_b_2 += (a.sol[i][n] - b.sol[i][n]) * (a.sol[i][n] - b.sol[i][n]);
 				a_2 += (a.sol[i][n]) * (a.sol[i][n]);
 			}
@@ -128,7 +128,7 @@ struct StandaloneViewer : IAddon {
 		}
 
 		if (SimpleGUI::Button(U"Batch {}"_fmt(m_currentBatch), Vec2{20, 60})) {
-			m_currentBatch = (m_currentBatch + 1) % m_bb_naive.input.para_batch;
+			m_currentBatch = (m_currentBatch + 1) % m_bb_naive.input.para_batch_unaligned;
 			rebuildTriangleList();
 		}
 
@@ -197,7 +197,7 @@ private:
 		const auto& bb_input = bb_result.input;
 
 		double maxSolAbs{};
-		for (int fc_id = 0; fc_id < bb_input.nofc; ++fc_id) {
+		for (int fc_id = 0; fc_id < bb_input.nofc_unaligned; ++fc_id) {
 			const double sol = bb_result.sol[fc_id][m_currentBatch];
 			maxSolAbs = Math::Max(maxSolAbs, Math::Abs(sol));
 
@@ -206,7 +206,7 @@ private:
 
 		if (maxSolAbs == 0.0) maxSolAbs = 1.0;
 
-		for (int fc_id = 0; fc_id < bb_input.nofc; ++fc_id) {
+		for (int fc_id = 0; fc_id < bb_input.nofc_unaligned; ++fc_id) {
 			// 各要素の重心を計算
 			// Vec3 centroid{0.0, 0.0, 0.0};
 			// for (int nd_id = 0; nd_id < bb_result.input.nond_on_face; nd_id++) {

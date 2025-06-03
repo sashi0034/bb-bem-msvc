@@ -35,7 +35,7 @@ namespace
 		double a_b_2{};
 		double a_2{};
 		for (int i = 0; i < a.dim; ++i) {
-			for (int n = 0; n < a.input.para_batch; ++n) {
+			for (int n = 0; n < a.input.para_batch_unaligned; ++n) {
 				a_b_2 += (a.sol[i][n] - b.sol[i][n]) * (a.sol[i][n] - b.sol[i][n]);
 				a_2 += (a.sol[i][n]) * (a.sol[i][n]);
 			}
