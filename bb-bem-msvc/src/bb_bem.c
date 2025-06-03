@@ -118,6 +118,10 @@ static void transpose_double_matrix(size_t rows, size_t cols, double** mat, doub
     }
 }
 
+static int align8(int size) {
+    return (size + 7) & ~7;
+}
+
 // -----------------------------------------------
 
 #define NUMBER_ELEMENT_DOF  1
@@ -150,7 +154,9 @@ static bb_status_t read_input_from_file(const char* filename, bb_input_t* input)
     }
 
     // Read the number of faces from an input data file: nofc  
-    if (fscanf(fp, "%d", &input->nofc) != 1) goto fail;
+    if (fscanf(fp, "%d", &input->nofc_unaligned) != 1) goto fail;
+
+    input->nofc = align8(input->nofc_unaligned);
 
     // Read the number of nodes on each face from an input data file: nond_on_face  
     if (fscanf(fp, "%d", &input->nond_on_face) != 1) goto fail;
@@ -162,9 +168,11 @@ static bb_status_t read_input_from_file(const char* filename, bb_input_t* input)
     if (fscanf(fp, "%d", &input->ndble_para_fc) != 1) goto fail;
 
     // Read the number of parameters set on each face from an input data file: para_batch
-    if (fscanf(fp, "%d", &input->para_batch) != 1) goto fail;
+    if (fscanf(fp, "%d", &input->para_batch_unaligned) != 1) goto fail;
 
-    printf("Number of nodes=%d Number of faces=%d\n", input->nond, input->nofc);
+    input->para_batch = align8(input->para_batch_unaligned);
+
+    printf("Number of nodes=%d Number of faces=%d (%d)\n", input->nond, input->nofc, input->nofc_unaligned);
 
     // -----------------------------------------------
 
@@ -172,7 +180,7 @@ static bb_status_t read_input_from_file(const char* filename, bb_input_t* input)
     input->face2node = (int**)allocate_matrix(input->nofc, input->nond_on_face, sizeof(int));
     if (!input->face2node) goto bad_alloc;
 
-    for (int i = 0; i < input->nofc; i++) {
+    for (int i = 0; i < input->nofc_unaligned; i++) {
         for (int j = 0; j < input->nond_on_face; j++) {
             if (fscanf(fp, "%d", &input->face2node[i][j]) != 1) goto fail;
         }
@@ -181,11 +189,11 @@ static bb_status_t read_input_from_file(const char* filename, bb_input_t* input)
     // int_para_fc
     if (input->nint_para_fc > 0) {
         input->int_para_fc = (int***)malloc(sizeof(int**) * input->para_batch);
-        for (int n = 0; n < input->para_batch; n++) {
+        for (int n = 0; n < input->para_batch_unaligned; n++) {
             input->int_para_fc[n] = (int**)allocate_matrix(input->nofc, input->nint_para_fc, sizeof(int));
             if (!input->int_para_fc[n]) goto bad_alloc;
 
-            for (int i = 0; i < input->nofc; i++) {
+            for (int i = 0; i < input->nofc_unaligned; i++) {
                 for (int j = 0; j < input->nint_para_fc; j++) {
                     if (fscanf(fp, "%d", &input->int_para_fc[n][i][j]) != 1) goto fail;
                 }
@@ -196,11 +204,11 @@ static bb_status_t read_input_from_file(const char* filename, bb_input_t* input)
     // dble_para_fc
     if (input->ndble_para_fc > 0) {
         input->dble_para_fc = (double***)malloc(sizeof(double**) * input->para_batch);
-        for (int n = 0; n < input->para_batch; n++) {
+        for (int n = 0; n < input->para_batch_unaligned; n++) {
             input->dble_para_fc[n] = (double**)allocate_matrix(input->nofc, input->ndble_para_fc, sizeof(double));
             if (!input->dble_para_fc[n]) goto bad_alloc;
 
-            for (int i = 0; i < input->nofc; i++) {
+            for (int i = 0; i < input->nofc_unaligned; i++) {
                 for (int j = 0; j < input->ndble_para_fc; j++) {
                     if (fscanf(fp, "%lf", &input->dble_para_fc[n][i][j]) != 1) goto fail;
                 }
@@ -262,7 +270,8 @@ static bb_status_t read_input_from_stl(const char* filename, bb_input_t* input) 
     }
 
     // Set value: nofc
-    input->nofc = model.num_facets;
+    input->nofc_unaligned = model.num_facets;
+    input->nofc = align8(input->nofc_unaligned);
 
     // Set value: nond_on_face  
     input->nond_on_face = 3;
@@ -274,7 +283,8 @@ static bb_status_t read_input_from_stl(const char* filename, bb_input_t* input) 
     input->ndble_para_fc = 0;
 
     // Set value: para_batch
-    input->para_batch = 16;
+    input->para_batch_unaligned = 8;
+    input->para_batch = align8(input->para_batch_unaligned);
 
     printf("Number of nodes=%d Number of faces=%d\n", input->nond, input->nofc);
 
@@ -284,7 +294,7 @@ static bb_status_t read_input_from_stl(const char* filename, bb_input_t* input) 
     input->face2node = (int**)allocate_matrix(input->nofc, input->nond_on_face, sizeof(int));
     if (!input->face2node) goto bad_alloc;
 
-    for (int i = 0; i < input->nofc; i++) {
+    for (int i = 0; i < input->nofc_unaligned; i++) {
         for (int j = 0; j < input->nond_on_face; j++) {
             input->face2node[i][j] = i * 3 + j;
         }
@@ -382,6 +392,13 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     for (idx = 0; idx < A_size; idx++) {
         const int i = idx / dim;
         const int j = idx % dim;
+
+        if (i >= input->nofc_unaligned || j >= input->nofc_unaligned) {
+            // Fill with zero if out of bounds
+            A[i][j] = 0.0;
+            continue;
+        }
+
         A[i][j] = element_ij_(&i, &j, &props);
     }
 
@@ -397,6 +414,12 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     for (idx = 0; idx < rhs_vector_size; idx++) {
         const int i = idx / para_batch;
         const int n = idx % para_batch;
+
+        if (i >= input->nofc_unaligned || n >= input->para_batch_unaligned) {
+            // Fill with zero if out of bounds
+            rhs[i][n] = 0.0;
+            continue;
+        }
 
         const int* int_para_fc = input->int_para_fc ? &input->int_para_fc[n][0][0] : NULL;
         const double* dble_para_fc = input->dble_para_fc ? &input->dble_para_fc[n][0][0] : NULL;
@@ -459,13 +482,13 @@ void release_bb_result(bb_result_t* result) {
     }
 
     if (input->int_para_fc) {
-        for (int n = 0; n < input->para_batch; n++) { release_matrix(input->int_para_fc[n]); }
+        for (int n = 0; n < input->para_batch_unaligned; n++) { release_matrix(input->int_para_fc[n]); }
 
         free(input->int_para_fc);
     }
 
     if (input->dble_para_fc) {
-        for (int n = 0; n < input->para_batch; n++) { release_matrix(input->dble_para_fc[n]); }
+        for (int n = 0; n < input->para_batch_unaligned; n++) { release_matrix(input->dble_para_fc[n]); }
 
         free(input->dble_para_fc);
     }

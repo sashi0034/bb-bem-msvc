@@ -32,13 +32,13 @@ namespace
 
 	double compute_relative_error(const bb_result_t& a, const bb_result_t& b) {
 		if (a.dim != b.dim) {
-			return 0.0;
+			return -1.0;
 		}
 
 		double a_b_2{};
 		double a_2{};
 		for (int i = 0; i < a.dim; ++i) {
-			for (int n = 0; n < a.input.para_batch; ++n) {
+			for (int n = 0; n < a.input.para_batch_unaligned; ++n) {
 				a_b_2 += (a.sol[i][n] - b.sol[i][n]) * (a.sol[i][n] - b.sol[i][n]);
 				a_2 += (a.sol[i][n]) * (a.sol[i][n]);
 			}
@@ -128,7 +128,7 @@ struct StandaloneViewer : IAddon {
 		}
 
 		if (SimpleGUI::Button(U"Batch {}"_fmt(m_currentBatch), Vec2{20, 60})) {
-			m_currentBatch = (m_currentBatch + 1) % m_bb_naive.input.para_batch;
+			m_currentBatch = (m_currentBatch + 1) % Max(1, m_bb_naive.input.para_batch_unaligned);
 			rebuildTriangleList();
 		}
 
@@ -171,17 +171,25 @@ private:
 	void calculate_bem() {
 		release_bem();
 
+		if (not calculate_bem_internal()) {
+			std::cerr << "Error: Boundary element analysis failed." << std::endl;
+			return;
+		}
+
+		varifyResult();
+		rebuildTriangleList();
+	}
+
+	bool calculate_bem_internal() {
 		const std::string filename = Util::GetTomlConfigValueOf<String>(U"input_path").toUTF8();;
-		if (bb_bem(filename.data(), BB_COMPUTE_NAIVE, &m_bb_naive) == BB_OK &&
-			bb_bem(filename.data(), BB_COMPUTE_CUDA, &m_bb_cuda) == BB_OK &&
-			bb_bem(filename.data(), BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) == BB_OK
-		) {
-			varifyResult();
-			rebuildTriangleList();
+
+		if (not Util::GetTomlConfigValueOf<bool>(U"skip_naive")) {
+			if (bb_bem(filename.data(), BB_COMPUTE_NAIVE, &m_bb_naive) != BB_OK) return false;
 		}
-		else {
-			std::cerr << "Error: Boundary element analysis failed: " << filename << std::endl;
-		}
+
+		if (bb_bem(filename.data(), BB_COMPUTE_CUDA, &m_bb_cuda) != BB_OK) return false;
+		if (bb_bem(filename.data(), BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) != BB_OK) return false;
+		return true;
 	}
 
 	void release_bem() {
@@ -197,7 +205,7 @@ private:
 		const auto& bb_input = bb_result.input;
 
 		double maxSolAbs{};
-		for (int fc_id = 0; fc_id < bb_input.nofc; ++fc_id) {
+		for (int fc_id = 0; fc_id < bb_input.nofc_unaligned; ++fc_id) {
 			const double sol = bb_result.sol[fc_id][m_currentBatch];
 			maxSolAbs = Math::Max(maxSolAbs, Math::Abs(sol));
 
@@ -206,7 +214,7 @@ private:
 
 		if (maxSolAbs == 0.0) maxSolAbs = 1.0;
 
-		for (int fc_id = 0; fc_id < bb_input.nofc; ++fc_id) {
+		for (int fc_id = 0; fc_id < bb_input.nofc_unaligned; ++fc_id) {
 			// 各要素の重心を計算
 			// Vec3 centroid{0.0, 0.0, 0.0};
 			// for (int nd_id = 0; nd_id < bb_result.input.nond_on_face; nd_id++) {
@@ -270,6 +278,9 @@ private:
 		Console.writeln(
 			U"Relative error between Naive and Cuda-WMMA: {}"_fmt(
 				compute_relative_error(m_bb_naive, m_bb_cuda_wmma)));
+		Console.writeln(
+			U"Relative error between Cuda and Cuda-WMMA: {}"_fmt(
+				compute_relative_error(m_bb_cuda, m_bb_cuda_wmma)));
 
 		Console.writeln(
 			U"Compute time (Naive): {} sec"_fmt(m_bb_naive.compute_time));

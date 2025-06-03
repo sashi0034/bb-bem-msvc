@@ -62,7 +62,10 @@ typedef struct bb_input_t {
     /// @brief 節点数 (Number of nodes)
     int nond;
 
-    /// @brief 要素数 (Number of faces/elements) 
+    /// @brief 要素数 (Number of faces/elements)
+    int nofc_unaligned;
+
+    /// @brief 要素数 (Number of faces/elements, 8-aligned)
     int nofc;
 
     /// @brief 各要素を構成する節点数 (Nodes per face) 
@@ -71,10 +74,13 @@ typedef struct bb_input_t {
     /// @brief 各要素上で定義される int 型パラメータ数 
     int nint_para_fc;
 
-    /// @brief 各要素上で定義される double 型パラメータ数 
+    /// @brief 各要素上で定義される double 型パラメータ数
     int ndble_para_fc;
 
     /// @brief 各要素におけるパラメータのバッチ数
+    int para_batch_unaligned;
+
+    /// @brief 各要素におけるパラメータのバッチ数 (8-aligned)
     int para_batch;
 
     /// @brief 節点座標 (サイズ: nond) 

@@ -6,6 +6,9 @@ use_remote_viewer = false
 # Input file path for StandaloneViewer
 input_path = "../../input_data/input.txt"
 
+# Skip naive computation in StandaloneViewer
+skip_naive = false
+
 # Model file path for RemoteViewer
 remote_model_path = "../../input_data/input.stl"
 

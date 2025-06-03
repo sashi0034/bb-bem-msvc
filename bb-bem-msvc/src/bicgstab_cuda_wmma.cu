@@ -65,8 +65,8 @@ static constexpr int WMMA_K = 4;
 // Kernel: Q[row, n] = sum_col A[row, col] * P[col, n]
 // All stored in row-major in global memory.
 __global__ void wmma_matvec(
-    int batch,
-    int dim,
+    int batch, /* 8-aligned */
+    int dim, /* 8-aligned */
     const double* __restrict__ A /* [dim * dim] */,
     const double* __restrict__ P /* [dim * batch] */,
     double* __restrict__ Q /* out [dim * batch] */
@@ -75,97 +75,38 @@ __global__ void wmma_matvec(
     const int block_row = blockIdx.x * WMMA_M;
     const int block_col = blockIdx.y * WMMA_N;
 
-    // one warp per tile
-    // allocate shared memory:
-    extern __shared__ double shared_mem[]; // size: WMMA_M * WMMA_K + WMMA_K * WMMA_N + WMMA_M * WMMA_N
-    double* sh_A = shared_mem; // WMMA_M * WMMA_K
-    double* sh_B = sh_A + (WMMA_M * WMMA_K); // WMMA_K * WMMA_N
-    double* sh_C = sh_B + (WMMA_K * WMMA_N); // WMMA_M * WMMA_N
-
-    // accumulator fragment
     wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, double> c_frag;
     wmma::fill_fragment(c_frag, 0.0);
 
-    // loop over K-tiles
-    const int num_k_tiles = (dim + WMMA_K - 1) / WMMA_K;
+    const int num_k_tiles = dim / WMMA_K;
     for (int k_tile = 0; k_tile < num_k_tiles; ++k_tile) {
-        const int k = k_tile * WMMA_K;
+        wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, double, wmma::row_major> a_frag; // 8x4
+        wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, double, wmma::row_major> b_frag; // 4x8
 
-        // copy A-tile (WMMA_M * WMMA_K) into shared memory
-        for (int i = threadIdx.x; i < WMMA_M * WMMA_K; i += warpSize) {
-            int ai = i / WMMA_K; // [0, WMMA_M)
-            int aj = i % WMMA_K; // [0, WMMA_K)
-            int global_r = block_row + ai;
-            int global_k = k + aj;
-            if (global_r < dim && global_k < dim)
-                sh_A[ai * WMMA_K + aj] = A[global_r * dim + global_k];
-            else
-                sh_A[ai * WMMA_K + aj] = 0.0;
-        }
+        const double* a_tile_ptr = A + (block_row * dim) + (k_tile * WMMA_K);
+        const double* b_tile_ptr = P + (k_tile * WMMA_K) * batch + block_col;
 
-        // copy P-tile (WMMA_K * WMMA_N) into shared memory
-        for (int i = threadIdx.x; i < WMMA_K * WMMA_N; i += warpSize) {
-            int bi = i / WMMA_N; // [0, WMMA_K)
-            int bj = i % WMMA_N; // [0, WMMA_N)
-            int global_k = k + bi;
-            int global_c = block_col + bj;
-            if (global_k < dim && global_c < batch)
-                sh_B[bi * WMMA_N + bj] = P[global_k * batch + global_c];
-            else
-                sh_B[bi * WMMA_N + bj] = 0.0;
-        }
+        wmma::load_matrix_sync(a_frag, a_tile_ptr, dim);
+        wmma::load_matrix_sync(b_frag, b_tile_ptr, batch);
 
-        __syncthreads();
-
-        // load fragments from shared memory
-        wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, double, wmma::row_major> a_frag;
-        wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, double, wmma::row_major> b_frag;
-
-        wmma::load_matrix_sync(a_frag, sh_A, WMMA_K);
-        wmma::load_matrix_sync(b_frag, sh_B, WMMA_N);
-
-        // perform the matrix-multiply-accumulate
         wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
-
-        __syncthreads();
     }
 
-    // store the result fragment to shared memory
-    wmma::store_matrix_sync(sh_C, c_frag, WMMA_N, wmma::mem_row_major);
-    __syncthreads();
-
-    // write the shared_mem tile back to global Q
-    for (int i = threadIdx.x; i < WMMA_M * WMMA_N; i += warpSize /* 32 */) {
-        int ci = i / WMMA_N; // [0, WMMA_M)
-        int cj = i % WMMA_N; // [0, WMMA_N)
-        int global_r = block_row + ci;
-        int global_c = block_col + cj;
-        if (global_r < dim && global_c < batch) {
-            Q[global_r * batch + global_c] = sh_C[ci * WMMA_N + cj];
-        }
-    }
+    double* c_tile_ptr = Q + (block_row * batch) + block_col;
+    wmma::store_matrix_sync(c_tile_ptr, c_frag, batch, wmma::mem_row_major);
 }
 
-// Host‐side helper to launch:
 static void launch_wmma_matvec(
-    int batch,
-    int dim,
+    int batch, /* 8-aligned */
+    int dim, /* 8-aligned */
     const double* d_A /* [dim * dim] */,
     const double* d_P /* [dim * batch] */,
     double* d_Q /* out [dim * batch] */
 ) {
-    dim3 grid((dim + WMMA_M - 1) / WMMA_M, (batch + WMMA_N - 1) / WMMA_N);
-    dim3 block(32, 1, 1); // one warp per tile
+    const dim3 grid(dim / WMMA_M, batch / WMMA_N);
+    const dim3 block(32, 1, 1); // one warp per tile
 
-    // bytes of shared memory for A, B, C tiles
-    size_t wmma_shared_bytes = sizeof(double) * (
-        WMMA_M * WMMA_K +
-        WMMA_K * WMMA_N +
-        WMMA_M * WMMA_N
-    );
-
-    wmma_matvec<<<grid, block, wmma_shared_bytes>>>(batch, dim, d_A, d_P, d_Q);
-    // cudaDeviceSynchronize();
+    wmma_matvec<<<grid, block>>>(batch, dim, d_A, d_P, d_Q);
 }
 
 // Kernel: R = B - A * X
