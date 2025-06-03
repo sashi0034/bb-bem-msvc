@@ -128,7 +128,7 @@ struct StandaloneViewer : IAddon {
 		}
 
 		if (SimpleGUI::Button(U"Batch {}"_fmt(m_currentBatch), Vec2{20, 60})) {
-			m_currentBatch = (m_currentBatch + 1) % m_bb_naive.input.para_batch_unaligned;
+			m_currentBatch = (m_currentBatch + 1) % Max(1, m_bb_naive.input.para_batch_unaligned);
 			rebuildTriangleList();
 		}
 
