@@ -1,6 +1,4 @@
-﻿#if 0 // We don't need this file in this branch
-
-#ifndef BICGSTAB_CUDA_WMMA_H
+﻿#ifndef BICGSTAB_CUDA_WMMA_H
 #define BICGSTAB_CUDA_WMMA_H
 
 #ifdef __cplusplus
@@ -22,5 +20,3 @@ void bicgstab_cuda_wmma(
 #endif // __cplusplus
 
 #endif // BICGSTAB_CUDA_WMMA_H
-
-#endif

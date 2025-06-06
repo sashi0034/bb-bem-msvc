@@ -1,4 +1,6 @@
-﻿#include <mma.h>
+﻿#if 0 // We don't need this file in this branch
+
+#include <mma.h>
 using namespace nvcuda;
 
 #include <stdio.h>
@@ -435,3 +437,5 @@ finalize:
 
     free(tmp);
 }
+
+#endif
