@@ -104,7 +104,7 @@ typedef struct bb_result_t {
     /// @brief 解ベクトルのサイズ (サイズ: nofc * 1)
     int dim;
 
-    /// @brief 解ベクトル (サイズ: dim * batch)
+    /// @brief 解ベクトル (サイズ: batch * dim)
     double** sol;
 
     /// @brief 演算部分の計算時間
@@ -122,7 +122,7 @@ typedef enum {
 typedef enum {
     BB_COMPUTE_NAIVE,
     BB_COMPUTE_CUDA,
-    BB_COMPUTE_CUDA_WMMA,
+    // BB_COMPUTE_CUDA_WMMA,
 } bb_compute_t;
 
 /// @brief BEM の計算を実行する関数
