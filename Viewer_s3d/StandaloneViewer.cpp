@@ -39,8 +39,8 @@ namespace
 		double a_2{};
 		for (int i = 0; i < a.dim; ++i) {
 			for (int n = 0; n < a.input.para_batch_unaligned; ++n) {
-				a_b_2 += (a.sol[i][n] - b.sol[i][n]) * (a.sol[i][n] - b.sol[i][n]);
-				a_2 += (a.sol[i][n]) * (a.sol[i][n]);
+				a_b_2 += (a.sol[n][i] - b.sol[n][i]) * (a.sol[n][i] - b.sol[n][i]);
+				a_2 += (a.sol[n][i]) * (a.sol[n][i]);
 			}
 		}
 
@@ -206,7 +206,7 @@ private:
 
 		double maxSolAbs{};
 		for (int fc_id = 0; fc_id < bb_input.nofc_unaligned; ++fc_id) {
-			const double sol = bb_result.sol[fc_id][m_currentBatch];
+			const double sol = bb_result.sol[m_currentBatch][fc_id];
 			maxSolAbs = Math::Max(maxSolAbs, Math::Abs(sol));
 
 			// std::cout << fc_id << ": " << sol << std::endl;
@@ -215,19 +215,7 @@ private:
 		if (maxSolAbs == 0.0) maxSolAbs = 1.0;
 
 		for (int fc_id = 0; fc_id < bb_input.nofc_unaligned; ++fc_id) {
-			// 各要素の重心を計算
-			// Vec3 centroid{0.0, 0.0, 0.0};
-			// for (int nd_id = 0; nd_id < bb_result.input.nond_on_face; nd_id++) {
-			// 	centroid += Vec3{
-			// 		bb_input.np[bb_input.face2node[fc_id][nd_id]].x,
-			// 		bb_input.np[bb_input.face2node[fc_id][nd_id]].y,
-			// 		bb_input.np[bb_input.face2node[fc_id][nd_id]].z
-			// 	};
-			// }
-			//
-			// centroid /= bb_result.input.nond_on_face;
-
-			const double sol = bb_result.sol[fc_id][m_currentBatch];
+			const double sol = bb_result.sol[m_currentBatch][fc_id];
 
 			HSV color = sol > 0 ? Palette::Orangered.removeSRGBCurve() : Palette::Royalblue.removeSRGBCurve();
 			// color.s = Math::Lerp(0.3, 1.0, Math::Abs(sol) / maxSolAbs);

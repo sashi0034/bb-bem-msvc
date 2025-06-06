@@ -14,25 +14,25 @@ using namespace nvcuda;
     } \
 } while (0)
 
-// Kernel: Q[row, n] = sum_col A[row, col] * P[col, n]
+// Kernel: Q[n, row] = sum_col A[row, col] * P[n, col]
 __global__ static void kernel_matvec(
     int batch,
     int dim,
     const double* __restrict__ mat /* [dim * dim] */,
-    const double* __restrict__ P /* [dim * batch] */,
-    double* __restrict__ Q /* out [dim * batch] */
+    const double* __restrict__ P /* [batch * dim] */,
+    double* __restrict__ Q /* out [batch * dim] */
 ) {
     const int row = blockIdx.x * blockDim.x + threadIdx.x;
     const int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
         double sum = 0.0;
         const double* Arow = mat + row * dim;
-        const double* Pcol = P + n;
+        const double* Prow = P + n * dim;
         for (int col = 0; col < dim; ++col) {
-            sum += Arow[col] * Pcol[col * batch];
+            sum += Arow[col] * Prow[col];
         }
 
-        Q[row * batch + n] = sum;
+        Q[n * dim + row] = sum;
     }
 }
 
@@ -41,21 +41,21 @@ __global__ static void kernel_residual(
     int batch,
     int dim,
     const double* __restrict__ A /* [dim * dim] */,
-    const double* __restrict__ X /* [dim * batch] */,
-    const double* __restrict__ B /* [dim * batch] */,
-    double* __restrict__ R /* out [dim * batch] */
+    const double* __restrict__ X /* [batch * dim] */,
+    const double* __restrict__ B /* [batch * dim] */,
+    double* __restrict__ R /* out [batch * dim] */
 ) {
     const int row = blockIdx.x * blockDim.x + threadIdx.x;
     const int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        double val = B[row * batch + n];
+        double val = B[n * dim + row];
         const double* Arow = A + row * dim;
-        const double* Xcol = X + n;
+        const double* Xrow = X + n * dim;
         for (int col = 0; col < dim; ++col) {
-            val -= Arow[col] * Xcol[col * batch];
+            val -= Arow[col] * Xrow[col];
         }
 
-        R[row * batch + n] = val;
+        R[n * dim + row] = val;
     }
 }
 
@@ -63,17 +63,17 @@ __global__ static void kernel_residual(
 __global__ static void kernel_dot_product(
     int batch,
     int dim,
-    const double* __restrict__ X /* [dim * batch] */,
-    const double* __restrict__ Y /* [dim * batch] */,
+    const double* __restrict__ X /* [batch * dim] */,
+    const double* __restrict__ Y /* [batch * dim] */,
     double* __restrict__ out /* out [batch] */
 ) {
     const int n = blockIdx.x * blockDim.x + threadIdx.x;
     if (n < batch) {
         double sum = 0.0;
-        const double* Xcol = X + n;
-        const double* Ycol = Y + n;
+        const double* Xrow = X + n * dim;
+        const double* Yrow = Y + n * dim;
         for (int i = 0; i < dim; ++i) {
-            sum += Xcol[i * batch] * Ycol[i * batch];
+            sum += Xrow[i] * Yrow[i];
         }
 
         out[n] = sum;
@@ -123,17 +123,17 @@ static int batch_lt(int batch, const double* x, double y) {
 __global__ static void kernel_update_p(
     int batch,
     int dim,
-    double* __restrict__ out /* out [batch] */,
-    const double* __restrict__ r /* [dim * batch] */,
-    const double* __restrict__ p /* [dim * batch] */,
-    const double* __restrict__ Ap /* [dim * batch] */,
+    double* __restrict__ out /* out [batch * dim] */,
+    const double* __restrict__ r /* [batch * dim] */,
+    const double* __restrict__ p /* [batch * dim] */,
+    const double* __restrict__ Ap /* [batch * dim] */,
     const double* __restrict__ beta /* [batch] */,
     const double* __restrict__ zeta /* [batch] */
 ) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        const int idx = row * batch + n;
+        const int idx = n * dim + row;
         out[idx] = r[idx] + beta[n] * (p[idx] - zeta[n] * Ap[idx]);
     }
 }
@@ -142,15 +142,15 @@ __global__ static void kernel_update_p(
 __global__ static void kernel_update_t(
     int batch,
     int dim,
-    const double* __restrict__ r /* [dim * batch] */,
-    const double* __restrict__ Akp /* [dim * batch] */,
+    const double* __restrict__ r /* [batch * dim] */,
+    const double* __restrict__ Akp /* [batch * dim] */,
     const double* __restrict__ alpha /* [batch] */,
-    double* __restrict__ t /* out [dim * batch] */
+    double* __restrict__ t /* out [batch * dim] */
 ) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        int idx = row * batch + n;
+        int idx = n * dim + row;
         t[idx] = r[idx] - alpha[n] * Akp[idx];
     }
 }
@@ -159,16 +159,16 @@ __global__ static void kernel_update_t(
 __global__ static void kernel_update_x(
     int batch,
     int dim,
-    double* __restrict__ x /* inout [dim * batch] */,
-    const double* __restrict__ kp /* [dim * batch] */,
-    const double* __restrict__ kt /* [dim * batch] */,
+    double* __restrict__ x /* inout [batch * dim] */,
+    const double* __restrict__ kp /* [batch * dim] */,
+    const double* __restrict__ kt /* [batch * dim] */,
     const double* __restrict__ alpha /* [batch] */,
     const double* __restrict__ zeta /* [batch] */
 ) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        int idx = row * batch + n;
+        int idx = n * dim + row;
         x[idx] += alpha[n] * kp[idx] + zeta[n] * kt[idx];
     }
 }
@@ -177,15 +177,15 @@ __global__ static void kernel_update_x(
 __global__ static void kernel_update_r(
     int batch,
     int dim,
-    const double* __restrict__ t /* [dim * batch] */,
-    const double* __restrict__ Akt /* [dim * batch] */,
+    const double* __restrict__ t /* [batch * dim] */,
+    const double* __restrict__ Akt /* [batch * dim] */,
     const double* __restrict__ zeta /* [batch] */,
-    double* __restrict__ r /* out [dim * batch] */
+    double* __restrict__ r /* out [batch * dim] */
 ) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        int idx = row * batch + n;
+        int idx = n * dim + row;
         r[idx] = t[idx] - zeta[n] * Akt[idx];
     }
 }
@@ -194,36 +194,36 @@ extern "C" void bicgstab_cuda(
     int batch,
     int dim,
     double** A /* in [dim][dim] */,
-    double** b /* in [dim][batch] */,
-    double** x /* out [dim][batch] */,
+    double** b /* in [batch][dim] */,
+    double** x /* out [batch][dim] */,
     double tor,
     int max_steps
 ) {
     const size_t dim_dim_bytes = static_cast<size_t>(dim) * dim * sizeof(double);
-    const size_t dim_batch_bytes = static_cast<size_t>(dim) * batch * sizeof(double);
+    const size_t batch_dim_bytes = static_cast<size_t>(batch) * dim * sizeof(double);
     const size_t batch_bytes = static_cast<size_t>(batch) * sizeof(double);
 
     // Device buffers
     double *d_A, *d_b, *d_x;
     CUDA_CHECK(cudaMalloc(&d_A, dim_dim_bytes));
-    CUDA_CHECK(cudaMalloc(&d_b, dim_batch_bytes));
-    CUDA_CHECK(cudaMalloc(&d_x, dim_batch_bytes));
+    CUDA_CHECK(cudaMalloc(&d_b, batch_dim_bytes));
+    CUDA_CHECK(cudaMalloc(&d_x, batch_dim_bytes));
 
     CUDA_CHECK(cudaMemcpy(d_A, A[0], dim_dim_bytes, cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_b, b[0], dim_batch_bytes, cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_x, x[0], dim_batch_bytes, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_b, b[0], batch_dim_bytes, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_x, x[0], batch_dim_bytes, cudaMemcpyHostToDevice));
 
     // Work arrays
     double *d_p, *d_r, *d_r0, *d_t, *d_Ap, *d_Akp, *d_kt, *d_Akt, *d_kp;
-    cudaMalloc(&d_p, dim_batch_bytes);
-    cudaMalloc(&d_r, dim_batch_bytes);
-    cudaMalloc(&d_r0, dim_batch_bytes);
-    cudaMalloc(&d_t, dim_batch_bytes);
-    cudaMalloc(&d_Ap, dim_batch_bytes);
-    cudaMalloc(&d_Akp, dim_batch_bytes);
-    cudaMalloc(&d_kt, dim_batch_bytes);
-    cudaMalloc(&d_Akt, dim_batch_bytes);
-    cudaMalloc(&d_kp, dim_batch_bytes);
+    cudaMalloc(&d_p, batch_dim_bytes);
+    cudaMalloc(&d_r, batch_dim_bytes);
+    cudaMalloc(&d_r0, batch_dim_bytes);
+    cudaMalloc(&d_t, batch_dim_bytes);
+    cudaMalloc(&d_Ap, batch_dim_bytes);
+    cudaMalloc(&d_Akp, batch_dim_bytes);
+    cudaMalloc(&d_kt, batch_dim_bytes);
+    cudaMalloc(&d_Akt, batch_dim_bytes);
+    cudaMalloc(&d_kp, batch_dim_bytes);
 
     double *d_bnorm, *d_rnorm, *d_nom, *d_nom_old, *d_den, *d_alpha, *d_beta, *d_zeta, *d_tmp;
     cudaMalloc(&d_bnorm, batch_bytes);
@@ -249,11 +249,11 @@ extern "C" void bicgstab_cuda(
 
     // r = b - A * x
     kernel_residual<<<grid2d,block2d>>>(batch, dim, d_A, d_x, d_b, d_r);
-    cudaMemcpy(d_r0, d_r, dim_batch_bytes, cudaMemcpyDeviceToDevice);
+    cudaMemcpy(d_r0, d_r, batch_dim_bytes, cudaMemcpyDeviceToDevice);
     kernel_dot_product<<<blocks1d, threads1d>>>(batch, dim, d_r, d_r, d_rnorm);
     kernel_sqrt<<<blocks1d, threads1d>>>(batch, d_rnorm, d_rnorm);
 
-    cudaMemset(d_p, 0, dim_batch_bytes);
+    cudaMemset(d_p, 0, batch_dim_bytes);
     cudaMemset(d_alpha, 0, batch_bytes);
     cudaMemset(d_beta, 0, batch_bytes);
     cudaMemset(d_zeta, 0, batch_bytes);
@@ -273,7 +273,7 @@ extern "C" void bicgstab_cuda(
 
         // p[i] = r[i] + beta * (p[i] - zeta * Ap[i]);
         kernel_update_p<<<grid2d, block2d>>>(batch, dim, d_p, d_r, d_p, d_Ap, d_beta, d_zeta);
-        cudaMemcpy(d_kp, d_p, dim_batch_bytes, cudaMemcpyDeviceToDevice);
+        cudaMemcpy(d_kp, d_p, batch_dim_bytes, cudaMemcpyDeviceToDevice);
 
         // matvec(dim, A, kp, Akp);
         kernel_matvec<<<grid2d, block2d>>>(batch, dim, d_A, d_kp, d_Akp);
@@ -294,9 +294,9 @@ extern "C" void bicgstab_cuda(
         kernel_update_t<<<grid2d,block2d>>>(batch, dim, d_r, d_Akp, d_alpha, d_t);
 
         // kt[i] = t[i];
-        cudaMemcpy(d_kt, d_t, dim_batch_bytes, cudaMemcpyDeviceToDevice);
+        cudaMemcpy(d_kt, d_t, batch_dim_bytes, cudaMemcpyDeviceToDevice);
 
-        //  matvec(dim, A, kt, Akt);
+        // matvec(dim, A, kt, Akt);
         kernel_matvec<<<grid2d,block2d>>>(batch, dim, d_A, d_kt, d_Akt);
 
         // nom = dot_product(dim, Akt, t);
@@ -333,7 +333,7 @@ extern "C" void bicgstab_cuda(
     }
 
 finalize:
-    cudaMemcpy(x[0], d_x, dim_batch_bytes, cudaMemcpyDeviceToHost);
+    cudaMemcpy(x[0], d_x, batch_dim_bytes, cudaMemcpyDeviceToHost);
 
     cudaFree(d_A);
     cudaFree(d_b);

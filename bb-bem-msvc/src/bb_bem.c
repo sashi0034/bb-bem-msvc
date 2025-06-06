@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
 
     for (int n = 0; n < result.input.para_batch; n++) {
         for (int i = 0; i < result.dim; i++) {
-            fprintf(fp, "%20.14e \n", result.sol[i][n]);
+            fprintf(fp, "%20.14e \n", result.sol[n][i]);
         }
     }
 
@@ -317,7 +317,7 @@ static bb_status_t read_input_from_stl(const char* filename, bb_input_t* input) 
     input->ndble_para_fc = 0;
 
     // Set value: para_batch
-    input->para_batch_unaligned = 8;
+    input->para_batch_unaligned = 64;
     input->para_batch = align8(input->para_batch_unaligned);
 
     printf("Number of nodes=%d Number of faces=%d\n", input->nond, input->nofc);
@@ -390,15 +390,15 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     printf("RHS vector size: %dx%d\n", result->dim, input->para_batch);
     fflush(stdout);
 
-    double** rhs = (double**)allocate_matrix(result->dim, input->para_batch, sizeof(double));
+    double** rhs = (double**)allocate_matrix(input->para_batch, result->dim, sizeof(double));
     if (!rhs) return BB_ERR_MEMORY_ALLOC;
 
-    result->sol = (double**)allocate_matrix(result->dim, input->para_batch, sizeof(double));
+    result->sol = (double**)allocate_matrix(result->input.para_batch, result->dim, sizeof(double));
     if (!result->sol) return BB_ERR_MEMORY_ALLOC;
 
-    for (int i = 0; i < result->dim; i++) {
-        for (int n = 0; n < input->para_batch; n++) {
-            result->sol[i][n] = 0.0;
+    for (int n = 0; n < result->input.para_batch; n++) {
+        for (int i = 0; i < result->dim; i++) {
+            result->sol[n][i] = 0.0;
         }
     }
 
@@ -451,14 +451,14 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
 
         if (i >= input->nofc_unaligned || n >= input->para_batch_unaligned) {
             // Fill with zero if out of bounds
-            rhs[i][n] = 0.0;
+            rhs[n][i] = 0.0;
             continue;
         }
 
         const int* int_para_fc = input->int_para_fc ? &input->int_para_fc[n][0][0] : NULL;
         const double* dble_para_fc = input->dble_para_fc ? &input->dble_para_fc[n][0][0] : NULL;
 
-        rhs[i][n] =
+        rhs[n][i] =
             rhs_vector_i_(&i, &n, &input->nint_para_fc, int_para_fc, &input->ndble_para_fc, dble_para_fc, &props);
     }
 
@@ -479,6 +479,7 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
         }
     }
 #else
+    // Call the appropriate solver
     if (compute == BB_COMPUTE_NAIVE) {
         bicgstab_naive(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
     } else if (compute == BB_COMPUTE_CUDA) {

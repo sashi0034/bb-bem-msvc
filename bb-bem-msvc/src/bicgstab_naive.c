@@ -48,19 +48,19 @@ static void batch_matvec(
     int batch,
     int dim,
     double** mat /* [dim][dim] */,
-    double** P /* [dim][batch] */,
-    double** Q /* out [dim][batch] */
+    double** P /* [batch][dim] */,
+    double** Q /* out [batch][dim] */
 ) {
-    for (int row = 0; row < dim; ++row) {
-        for (int n = 0; n < batch; ++n) {
-            Q[row][n] = 0.0;
+    for (int n = 0; n < batch; ++n) {
+        for (int row = 0; row < dim; ++row) {
+            Q[n][row] = 0.0;
         }
     }
 
-    for (int row = 0; row < dim; ++row) {
-        for (int col = 0; col < dim; ++col) {
-            for (int n = 0; n < batch; ++n) {
-                Q[row][n] += mat[row][col] * P[col][n];
+    for (int n = 0; n < batch; ++n) {
+        for (int row = 0; row < dim; ++row) {
+            for (int col = 0; col < dim; ++col) {
+                Q[n][row] += mat[row][col] * P[n][col];
             }
         }
     }
@@ -83,20 +83,20 @@ static void batch_residual(
     int batch,
     int dim,
     double** A /* [dim][dim] */,
-    double** X /* [dim][batch] */,
-    double** B /* [dim][batch] */,
-    double** R /* out [dim][batch] */
+    double** X /* [batch][dim] */,
+    double** B /* [batch][dim] */,
+    double** R /* out [batch][dim] */
 ) {
-    for (int row = 0; row < dim; ++row) {
-        for (int n = 0; n < batch; ++n) {
-            R[row][n] = B[row][n];
+    for (int n = 0; n < batch; ++n) {
+        for (int row = 0; row < dim; ++row) {
+            R[n][row] = B[n][row];
         }
     }
 
-    for (int row = 0; row < dim; ++row) {
-        for (int col = 0; col < dim; ++col) {
-            for (int n = 0; n < batch; ++n) {
-                R[row][n] -= A[row][col] * X[col][n];
+    for (int n = 0; n < batch; ++n) {
+        for (int row = 0; row < dim; ++row) {
+            for (int col = 0; col < dim; ++col) {
+                R[n][row] -= A[row][col] * X[n][col];
             }
         }
     }
@@ -114,17 +114,17 @@ static double dot_product(int dim, const double* x, const double* y) {
 static void batch_dot_product(
     int batch,
     int dim,
-    double** X /* [dim][batch] */ ,
-    double** Y /* [dim][batch] */ ,
+    double** X /* [batch][dim] */,
+    double** Y /* [batch][dim] */,
     double* out /* out */
 ) {
     for (int n = 0; n < batch; ++n) {
         out[n] = 0.0;
     }
 
-    for (int i = 0; i < dim; ++i) {
-        for (int n = 0; n < batch; ++n) {
-            out[n] += X[i][n] * Y[i][n];
+    for (int n = 0; n < batch; ++n) {
+        for (int i = 0; i < dim; ++i) {
+            out[n] += X[n][i] * Y[n][i];
         }
     }
 }
@@ -163,17 +163,16 @@ void bicgstab_naive(
     int batch,
     int dim,
     double** A /* in [dim][dim] */,
-    double** b /* in [dim][batch] */,
-    double** x /* out [dim][batch] */,
+    double** b /* in [batch][dim] */,
+    double** x /* out [batch][dim] */,
     double tor,
     int max_steps
 ) {
     // Initialization
-
-    double** p = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: P
-    for (int i = 0; i < dim; i++) {
-        for (int n = 0; n < batch; n++) {
-            p[i][n] = 0.0;
+    double** p = (double**)allocate_matrix(batch, dim, sizeof(double)); // <-- Allocation: P
+    for (int n = 0; n < batch; n++) {
+        for (int i = 0; i < dim; i++) {
+            p[n][i] = 0.0;
         }
     }
 
@@ -183,31 +182,28 @@ void bicgstab_naive(
     batch_sqrt(batch, bnorm, bnorm); // sqrt(dot_product(dim, b, b))
 
     // Initial residual
-    double** r = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: r
-    // residual(dim, A, x, b, r);
+    double** r = (double**)allocate_matrix(batch, dim, sizeof(double)); // <-- Allocation: r
     batch_residual(batch, dim, A, x, b, r);
 
     // Set shadow vector
-    double** r0 = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: r0
-    // for (int i = 0; i < dim; i++) { r0[i] = r[i]; }
-    for (int i = 0; i < dim; i++) {
-        for (int n = 0; n < batch; n++) {
-            r0[i][n] = r[i][n];
+    double** r0 = (double**)allocate_matrix(batch, dim, sizeof(double)); // <-- Allocation: r0
+    for (int n = 0; n < batch; n++) {
+        for (int i = 0; i < dim; i++) {
+            r0[n][i] = r[n][i];
         }
     }
 
     double* rnorm = malloc(sizeof(double) * batch); // <-- Allocation: rnorm
-    // rnorm = sqrt(dot_product(dim, r, r));
     batch_dot_product(batch, dim, r, r, rnorm);
     batch_sqrt(batch, rnorm, rnorm);
 
     // Allocation of arrays
-    double** t = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: t 
-    double** Ap = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: Ap 
-    double** Akp = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: Akp  
-    double** kt = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: kt 
-    double** Akt = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: Akt 
-    double** kp = (double**)allocate_matrix(dim, batch, sizeof(double)); // <-- Allocation: kp
+    double** t = (double**)allocate_matrix(batch, dim, sizeof(double)); // <-- Allocation: t 
+    double** Ap = (double**)allocate_matrix(batch, dim, sizeof(double)); // <-- Allocation: Ap 
+    double** Akp = (double**)allocate_matrix(batch, dim, sizeof(double)); // <-- Allocation: Akp  
+    double** kt = (double**)allocate_matrix(batch, dim, sizeof(double)); // <-- Allocation: kt 
+    double** Akt = (double**)allocate_matrix(batch, dim, sizeof(double)); // <-- Allocation: Akt 
+    double** kp = (double**)allocate_matrix(batch, dim, sizeof(double)); // <-- Allocation: kp
 
     double* nom = malloc(sizeof(double) * batch); // <-- Allocation: nom
     double* nom_old = malloc(sizeof(double) * batch); // <-- Allocation: nom_old
@@ -235,18 +231,18 @@ void bicgstab_naive(
         batch_matvec(batch, dim, A, p, Ap);
 
         // for (int i = 0; i < dim; i++) { p[i] = r[i] + beta * (p[i] - zeta * Ap[i]); }
-        for (int i = 0; i < dim; i++) {
-            for (int n = 0; n < batch; n++) {
-                p[i][n] = r[i][n] + beta[n] * (p[i][n] - zeta[n] * Ap[i][n]);
+        for (int n = 0; n < batch; n++) {
+            for (int i = 0; i < dim; i++) {
+                p[n][i] = r[n][i] + beta[n] * (p[n][i] - zeta[n] * Ap[n][i]);
             }
         }
 
         // No preconditioning 
 
         // for (int i = 0; i < dim; i++) { kp[i] = p[i]; }
-        for (int i = 0; i < dim; i++) {
-            for (int n = 0; n < batch; n++) {
-                kp[i][n] = p[i][n];
+        for (int n = 0; n < batch; n++) {
+            for (int i = 0; i < dim; i++) {
+                kp[n][i] = p[n][i];
             }
         }
 
@@ -266,17 +262,17 @@ void bicgstab_naive(
         for (int i = 0; i < batch; i++) { nom_old[i] = nom[i]; }
 
         // for (int i = 0; i < dim; i++) { t[i] = r[i] - alpha * Akp[i]; }
-        for (int i = 0; i < dim; i++) {
-            for (int n = 0; n < batch; n++) {
-                t[i][n] = r[i][n] - alpha[n] * Akp[i][n];
+        for (int n = 0; n < batch; n++) {
+            for (int i = 0; i < dim; i++) {
+                t[n][i] = r[n][i] - alpha[n] * Akp[n][i];
             }
         }
 
         // No preconditioning 
         // for (int i = 0; i < dim; i++) { kt[i] = t[i]; }
-        for (int i = 0; i < dim; i++) {
-            for (int n = 0; n < batch; n++) {
-                kt[i][n] = t[i][n];
+        for (int n = 0; n < batch; n++) {
+            for (int i = 0; i < dim; i++) {
+                kt[n][i] = t[n][i];
             }
         }
 
@@ -293,16 +289,16 @@ void bicgstab_naive(
         batch_div(batch, nom, den, zeta);
 
         // for (int i = 0; i < dim; i++) { x[i] = x[i] + alpha * kp[i] + zeta * kt[i]; }
-        for (int i = 0; i < dim; i++) {
-            for (int n = 0; n < batch; n++) {
-                x[i][n] += alpha[n] * kp[i][n] + zeta[n] * kt[i][n];
+        for (int n = 0; n < batch; n++) {
+            for (int i = 0; i < dim; i++) {
+                x[n][i] += alpha[n] * kp[n][i] + zeta[n] * kt[n][i];
             }
         }
 
         // for (int i = 0; i < dim; i++) { r[i] = t[i] - zeta * Akt[i]; }
-        for (int i = 0; i < dim; i++) {
-            for (int n = 0; n < batch; n++) {
-                r[i][n] = t[i][n] - zeta[n] * Akt[i][n];
+        for (int n = 0; n < batch; n++) {
+            for (int i = 0; i < dim; i++) {
+                r[n][i] = t[n][i] - zeta[n] * Akt[n][i];
             }
         }
 

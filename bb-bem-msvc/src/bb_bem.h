@@ -104,7 +104,7 @@ typedef struct bb_result_t {
     /// @brief 解ベクトルのサイズ (サイズ: nofc * 1)
     int dim;
 
-    /// @brief 解ベクトル (サイズ: dim * batch)
+    /// @brief 解ベクトル (サイズ: batch * dim)
     double** sol;
 
     /// @brief 演算部分の計算時間
