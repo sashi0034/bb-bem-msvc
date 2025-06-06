@@ -1,5 +1,6 @@
 ﻿#ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
+#include <windows.h>
 #endif
 
 #include <stdio.h>
@@ -125,24 +126,29 @@ static int align8(int size) {
 }
 
 #ifdef _WIN32
-typedef clock_t measurement_t;
+typedef struct {
+    LARGE_INTEGER start;
+} measurement_t;
 #else
 typedef struct timespec measurement_t;
 #endif
 
 static measurement_t start_measurement(void) {
+    measurement_t m;
 #ifdef _WIN32
-    return clock();
+    QueryPerformanceCounter(&m.start);
 #else
-    struct timespec t;
-    clock_gettime(CLOCK_MONOTONIC, &t);
-    return t;
+    clock_gettime(CLOCK_MONOTONIC, &m);
 #endif
+    return m;
 }
 
 static double end_measurement(measurement_t start) {
 #ifdef _WIN32
-    return (double)(clock() - start) / CLOCKS_PER_SEC;
+    LARGE_INTEGER end, freq;
+    QueryPerformanceCounter(&end);
+    QueryPerformanceFrequency(&freq);
+    return (double)(end.QuadPart - start.start.QuadPart) / (double)freq.QuadPart;
 #else
     struct timespec end;
     clock_gettime(CLOCK_MONOTONIC, &end);
