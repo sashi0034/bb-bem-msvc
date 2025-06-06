@@ -39,8 +39,8 @@ namespace
 		double a_2{};
 		for (int i = 0; i < a.dim; ++i) {
 			for (int n = 0; n < a.input.para_batch_unaligned; ++n) {
-				a_b_2 += (a.sol[i][n] - b.sol[i][n]) * (a.sol[i][n] - b.sol[i][n]);
-				a_2 += (a.sol[i][n]) * (a.sol[i][n]);
+				a_b_2 += (a.sol[n][i] - b.sol[n][i]) * (a.sol[n][i] - b.sol[n][i]);
+				a_2 += (a.sol[n][i]) * (a.sol[n][i]);
 			}
 		}
 
@@ -67,7 +67,7 @@ struct StandaloneViewer : IAddon {
 
 	bb_result_t m_bb_naive{};
 	bb_result_t m_bb_cuda{};
-	bb_result_t m_bb_cuda_wmma{};
+	// bb_result_t m_bb_cuda_wmma{};
 
 	// Array<SphereData> m_sphereList{};
 	Array<TriangleData> m_triangleList{};
@@ -123,7 +123,7 @@ struct StandaloneViewer : IAddon {
 		}
 
 		if (SimpleGUI::Button(U"{}"_fmt(getComputeName()), Vec2{20, 20})) {
-			m_currentCompute = static_cast<bb_compute_t>((m_currentCompute + 1) % (BB_COMPUTE_CUDA_WMMA + 1));
+			m_currentCompute = static_cast<bb_compute_t>((m_currentCompute + 1) % (BB_COMPUTE_CUDA + 1));
 			rebuildTriangleList();
 		}
 
@@ -146,8 +146,8 @@ private:
 			return m_bb_naive;
 		case BB_COMPUTE_CUDA:
 			return m_bb_cuda;
-		case BB_COMPUTE_CUDA_WMMA:
-			return m_bb_cuda_wmma;
+		// case BB_COMPUTE_CUDA_WMMA:
+		// 	return m_bb_cuda_wmma;
 		default:
 			assert(false);
 			return {};
@@ -160,8 +160,8 @@ private:
 			return U"Naive";
 		case BB_COMPUTE_CUDA:
 			return U"CUDA";
-		case BB_COMPUTE_CUDA_WMMA:
-			return U"CUDA WMMA";
+		// case BB_COMPUTE_CUDA_WMMA:
+		// 	return U"CUDA WMMA";
 		default:
 			assert(false);
 			return {};
@@ -188,14 +188,14 @@ private:
 		}
 
 		if (bb_bem(filename.data(), BB_COMPUTE_CUDA, &m_bb_cuda) != BB_OK) return false;
-		if (bb_bem(filename.data(), BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) != BB_OK) return false;
+		// if (bb_bem(filename.data(), BB_COMPUTE_CUDA_WMMA, &m_bb_cuda_wmma) != BB_OK) return false;
 		return true;
 	}
 
 	void release_bem() {
 		release_bb_result(&m_bb_naive);
 		release_bb_result(&m_bb_cuda);
-		release_bb_result(&m_bb_cuda_wmma);
+		// release_bb_result(&m_bb_cuda_wmma);
 	}
 
 	void rebuildTriangleList() {
@@ -206,7 +206,7 @@ private:
 
 		double maxSolAbs{};
 		for (int fc_id = 0; fc_id < bb_input.nofc_unaligned; ++fc_id) {
-			const double sol = bb_result.sol[fc_id][m_currentBatch];
+			const double sol = bb_result.sol[m_currentBatch][fc_id];
 			maxSolAbs = Math::Max(maxSolAbs, Math::Abs(sol));
 
 			// std::cout << fc_id << ": " << sol << std::endl;
@@ -227,7 +227,7 @@ private:
 			//
 			// centroid /= bb_result.input.nond_on_face;
 
-			const double sol = bb_result.sol[fc_id][m_currentBatch];
+			const double sol = bb_result.sol[m_currentBatch][fc_id];
 
 			HSV color = sol > 0 ? Palette::Orangered.removeSRGBCurve() : Palette::Royalblue.removeSRGBCurve();
 			// color.s = Math::Lerp(0.3, 1.0, Math::Abs(sol) / maxSolAbs);
@@ -275,19 +275,19 @@ private:
 
 		Console.writeln(
 			U"Relative error between Naive and Cuda: {}"_fmt(compute_relative_error(m_bb_naive, m_bb_cuda)));
-		Console.writeln(
-			U"Relative error between Naive and Cuda-WMMA: {}"_fmt(
-				compute_relative_error(m_bb_naive, m_bb_cuda_wmma)));
-		Console.writeln(
-			U"Relative error between Cuda and Cuda-WMMA: {}"_fmt(
-				compute_relative_error(m_bb_cuda, m_bb_cuda_wmma)));
+		// Console.writeln(
+		// 	U"Relative error between Naive and Cuda-WMMA: {}"_fmt(
+		// 		compute_relative_error(m_bb_naive, m_bb_cuda_wmma)));
+		// Console.writeln(
+		// 	U"Relative error between Cuda and Cuda-WMMA: {}"_fmt(
+		// 		compute_relative_error(m_bb_cuda, m_bb_cuda_wmma)));
 
 		Console.writeln(
 			U"Compute time (Naive): {} sec"_fmt(m_bb_naive.compute_time));
 		Console.writeln(
 			U"Compute time (Cuda): {} sec"_fmt(m_bb_cuda.compute_time));
-		Console.writeln(
-			U"Compute time (Cuda-WMMA): {} sec"_fmt(m_bb_cuda_wmma.compute_time));
+		// Console.writeln(
+		// 	U"Compute time (Cuda-WMMA): {} sec"_fmt(m_bb_cuda_wmma.compute_time));
 	}
 };
 
