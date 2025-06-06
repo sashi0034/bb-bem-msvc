@@ -193,8 +193,8 @@ __global__ static void kernel_update_r(
 extern "C" void bicgstab_cuda(
     int dim,
     double** A /* in [dim] */,
-    double** b /* in [dim] */,
-    double** x /* out [dim] */,
+    double* b /* in [dim] */,
+    double* x /* out [dim] */,
     double tor,
     int max_steps
 ) {
@@ -210,8 +210,8 @@ extern "C" void bicgstab_cuda(
     CUDA_CHECK(cudaMalloc(&d_x, dim_batch_bytes));
 
     CUDA_CHECK(cudaMemcpy(d_A, A[0], dim_dim_bytes, cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_b, b[0], dim_batch_bytes, cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_x, x[0], dim_batch_bytes, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_b, b, dim_batch_bytes, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_x, x, dim_batch_bytes, cudaMemcpyHostToDevice));
 
     // Work arrays
     double *d_p, *d_r, *d_r0, *d_t, *d_Ap, *d_Akp, *d_kt, *d_Akt, *d_kp;
@@ -333,7 +333,7 @@ extern "C" void bicgstab_cuda(
     }
 
 finalize:
-    cudaMemcpy(x[0], d_x, dim_batch_bytes, cudaMemcpyDeviceToHost);
+    cudaMemcpy(x, d_x, dim_batch_bytes, cudaMemcpyDeviceToHost);
 
     cudaFree(d_A);
     cudaFree(d_b);

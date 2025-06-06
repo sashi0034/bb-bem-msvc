@@ -18,7 +18,7 @@
 
 #include "bicgstab_naive.h"
 #include "bicgstab_cuda.h"
-#include "bicgstab_cuda_wmma.h"
+// #include "bicgstab_cuda_wmma.h"
 
 #if !defined(BB_NO_MAIN)
 int main(int argc, char* argv[]) {
@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
 
     for (int n = 0; n < result.input.para_batch; n++) {
         for (int i = 0; i < result.dim; i++) {
-            fprintf(fp, "%20.14e \n", result.sol[i][n]);
+            fprintf(fp, "%20.14e \n", result.sol[n][i]);
         }
     }
 
