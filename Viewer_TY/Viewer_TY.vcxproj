@@ -148,6 +148,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="StandaloneViewer.cpp" />
+    <Content Include="..\Viewer_s3d\App\config.toml" />
     <Content Include=".gitignore" />
     <Content Include="asset\shader\phong.hlsl" />
     <Content Include="engine\stub.hlsl" />
