@@ -16,7 +16,7 @@ namespace
 			}
 		}
 
-		return Math::Sqrt(a_b_2 / a_2);
+		return std::sqrt(a_b_2 / a_2);
 	}
 }
 

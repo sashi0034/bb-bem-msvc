@@ -22,6 +22,8 @@
 
 #include "../bb-bem-msvc/src/bb_bem.h"
 #include "../bb-bem-msvc/src/stl_wrapper.hpp"
+#include "../Viewer_s3d/bb_bem_wrapper.h"
+#include "TY/HSV.h"
 
 using namespace TY;
 
@@ -69,7 +71,7 @@ namespace
     const std::string shader_lambert = "asset/shader/lambert.hlsl";
 }
 
-struct StandaloneViewer_impl {
+struct StandaloneViewer_TY {
     Pose m_camera{};
 
     Mat4x4 m_projectionMat{};
@@ -83,7 +85,12 @@ struct StandaloneViewer_impl {
 
     Model m_targetModel{};
 
-    StandaloneViewer_impl() {
+    bb_bem_wrapper::ResultHolder m_bb{};
+
+    bb_compute_t m_currentCompute{};
+    int8_t m_currentBatch{};
+
+    StandaloneViewer_TY() {
         resetCamera();
 
         const PixelShader defaultPS{ShaderParams::PS("asset/shader/model_pixel.hlsl")};
@@ -91,6 +98,8 @@ struct StandaloneViewer_impl {
 
         m_modelPS = PixelShader{ShaderParams{.filename = shader_lambert, .entryPoint = "PS"}};
         m_modelVS = VertexShader{ShaderParams{.filename = shader_lambert, .entryPoint = "VS"}};
+        // m_modelPS = defaultPS;
+        // m_modelVS = defaultVS;
 
         const auto gridPlaneTexture = makeGridPlane(
             Size{1024, 1024}, 32, ColorF32{0.8}, ColorF32{0.9});
@@ -100,7 +109,7 @@ struct StandaloneViewer_impl {
             .setShaders(defaultPS, defaultVS)
         };
 
-        rebuildModel();
+        calculate_bem();
     }
 
     void Update() {
@@ -190,7 +199,7 @@ struct StandaloneViewer_impl {
         const Float3 moveVector = poseInput.position.normalized();
         const Float3 rotateVector = poseInput.rotation.normalized();
 
-        constexpr double moveSpeed = 10.0f;
+        constexpr double moveSpeed = 1.0f;
         constexpr double rotationSpeed = 50.0f;
 
         if (not moveVector.isZero()) {
@@ -214,23 +223,78 @@ struct StandaloneViewer_impl {
         Graphics3D::SetProjectionMatrix(m_projectionMat);
     }
 
+    void calculate_bem() {
+        m_bb.release();
+
+        if (not calculate_bem_internal()) {
+            std::cerr << "Error: Boundary element analysis failed." << std::endl;
+            return;
+        }
+
+        m_bb.varifyResult();
+        rebuildModel();
+    }
+
+    bool calculate_bem_internal() {
+        const std::string filename = "../input_data/torus.stl";
+
+        if (bb_bem(filename.data(), BB_COMPUTE_NAIVE, &m_bb.bb_naive) != BB_OK) return false;
+        if (bb_bem(filename.data(), BB_COMPUTE_CUDA, &m_bb.bb_cuda) != BB_OK) return false;
+        if (bb_bem(filename.data(), BB_COMPUTE_CUDA_WMMA, &m_bb.bb_cuda_wmma) != BB_OK) return false;
+
+        return true;
+    }
+
     void rebuildModel() {
-        const std::string modelPath = "../input_data/torus-sd2x.stl";
+        const std::string modelPath = "../input_data/torus.stl";
         const STLModel model{modelPath};
+
+        const auto& bb_result = m_bb.get(m_currentCompute);
+        const auto& bb_input = bb_result.input;
+        double maxSolAbs{};
+        for (int fc_id = 0; fc_id < bb_input.nofc_unaligned; ++fc_id) {
+            const double sol = bb_result.sol[fc_id][m_currentBatch];
+            maxSolAbs = Max(maxSolAbs, Abs(sol));
+        }
+
+        if (maxSolAbs == 0.0) maxSolAbs = 1.0;
+
+        // -----------------------------------------------
 
         ModelData modelData{};
 
-        modelData.materials.push_back({}); // TODO
-        modelData.materials.back().parameters.diffuse = Float3{1.0f};
+        constexpr int colorResolution = 64;
+        for (int i = 0; i < colorResolution; ++i) {
+            auto color = HSV{ColorF32{0.97, 0.29, 0}};
+            color.s = (i + 1.0f) / static_cast<float>(colorResolution);
 
-        modelData.shapes.emplace_back();
-        auto& shape = modelData.shapes.back();
-        shape.materialIndex = 0; // TODO: マテリアルのインデックスを設定
+            modelData.materials.push_back({});
+            modelData.materials.back().parameters.diffuse = color.toColorF().toFloat3();
+        }
 
-        for (int i = 0; i < model.facets().size(); ++i) {
-            const auto& facet = model.facets()[i];
+        for (int i = 0; i < colorResolution; ++i) {
+            auto color = HSV{ColorF32{0.18, 0.35, 0.85}};
+            color.s = (i + 1.0f) / static_cast<float>(colorResolution);
 
-            const auto baseIndex = i * 3;
+            modelData.materials.push_back({});
+            modelData.materials.back().parameters.diffuse = color.toColorF().toFloat3();
+        }
+
+        modelData.shapes.resize(modelData.materials.size());
+        for (int i = 0; i < modelData.shapes.size(); ++i) {
+            modelData.shapes[i].materialIndex = i;
+        }
+
+        for (int fc_id = 0; fc_id < bb_input.nofc_unaligned; ++fc_id) {
+            const double sol = bb_result.sol[fc_id][m_currentBatch];
+            const int shapeIndex = (Abs(sol) / maxSolAbs) * colorResolution + (sol < 0.0 ? colorResolution : 0);
+            auto& shape = modelData.shapes[shapeIndex];
+
+            std::cout << shapeIndex << " ";
+
+            const auto& facet = model.facets()[fc_id];
+
+            const auto baseIndex = shape.vertexBuffer.size();
             shape.indexBuffer.push_back(baseIndex);
             shape.indexBuffer.push_back(baseIndex + 1);
             shape.indexBuffer.push_back(baseIndex + 2);
@@ -256,7 +320,7 @@ struct StandaloneViewer_impl {
 };
 
 void Viewer_TY::StandaloneViewer() {
-    StandaloneViewer_impl impl{};
+    StandaloneViewer_TY impl{};
 
     while (System::Update()) {
 #ifdef _DEBUG
