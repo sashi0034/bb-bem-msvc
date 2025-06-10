@@ -1,7 +1,7 @@
 ﻿#include "pch.h"
 
 #include "imgui.h"
-#include "StandaloneViewer.h"
+#include "StandaloneViewer_TY.h"
 
 #include "LivePPAddon.h"
 #include "TY/ConstantBuffer.h"

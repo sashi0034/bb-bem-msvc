@@ -147,7 +147,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="StandaloneViewer.cpp" />
+    <ClCompile Include="..\Viewer_s3d\bb_bem_wrapper.cpp" />
+    <ClCompile Include="StandaloneViewer_TY.cpp" />
     <Content Include="..\Viewer_s3d\App\config.toml" />
     <Content Include=".gitignore" />
     <Content Include="asset\shader\phong.hlsl" />
@@ -214,11 +215,12 @@
     <ClInclude Include="..\bb-bem-msvc\src\bicgstab_cuda_wmma.h" />
     <ClInclude Include="..\bb-bem-msvc\src\stl_loader.h" />
     <ClInclude Include="..\bb-bem-msvc\src\stl_wrapper.hpp" />
+    <ClInclude Include="..\Viewer_s3d\bb_bem_wrapper.h" />
     <ClInclude Include="asset\shader\basic.hlsli" />
     <ClInclude Include="asset\shader\model.hlsli" />
     <ClInclude Include="LivePPAddon.h" />
     <ClInclude Include="pch.h" />
-    <ClInclude Include="StandaloneViewer.h" />
+    <ClInclude Include="StandaloneViewer_TY.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Tsuyu/external\DirectXTex\DirectXTex\DirectXTex_Desktop_2022.vcxproj">
