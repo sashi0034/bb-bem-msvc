@@ -1,7 +1,7 @@
 #include "pch.h"
 
-#include "RemoteViewer.h"
+#include "StandaloneViewer.h"
 
 void Main() {
-    Viewer_TY::RemoteViewer();
+    Viewer_TY::StandaloneViewer();
 }

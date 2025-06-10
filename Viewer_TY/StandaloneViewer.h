@@ -2,5 +2,5 @@
 
 namespace Viewer_TY
 {
-    void RemoteViewer();
+    void StandaloneViewer();
 }

@@ -1,7 +1,7 @@
 ﻿#include "pch.h"
 
 #include "imgui.h"
-#include "RemoteViewer.h"
+#include "StandaloneViewer.h"
 
 #include "LivePPAddon.h"
 #include "TY/ConstantBuffer.h"
@@ -69,7 +69,7 @@ namespace
     const std::string shader_lambert = "asset/shader/lambert.hlsl";
 }
 
-struct Title_PointLight_impl {
+struct StandaloneViewer_impl {
     Pose m_camera{};
 
     Mat4x4 m_projectionMat{};
@@ -83,7 +83,7 @@ struct Title_PointLight_impl {
 
     Model m_targetModel{};
 
-    Title_PointLight_impl() {
+    StandaloneViewer_impl() {
         resetCamera();
 
         const PixelShader defaultPS{ShaderParams::PS("asset/shader/model_pixel.hlsl")};
@@ -255,8 +255,8 @@ struct Title_PointLight_impl {
     }
 };
 
-void Viewer_TY::RemoteViewer() {
-    Title_PointLight_impl impl{};
+void Viewer_TY::StandaloneViewer() {
+    StandaloneViewer_impl impl{};
 
     while (System::Update()) {
 #ifdef _DEBUG
