@@ -1,5 +1,6 @@
 ﻿#ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
+#include <windows.h>
 #endif
 
 #include <stdio.h>
@@ -59,6 +60,8 @@ int main(int argc, char* argv[]) {
     fflush(stdout);
 
     bb_bem(input_file, compute_mode, &result);
+
+    printf("Compute time: %.6f\n", result.compute_time);
 
     // ----------------------------------------------- fp
     FILE* fp = fopen(output_file, "w");
@@ -120,6 +123,37 @@ static void transpose_double_matrix(size_t rows, size_t cols, double** mat, doub
 
 static int align8(int size) {
     return (size + 7) & ~7;
+}
+
+#ifdef _WIN32
+typedef struct {
+    LARGE_INTEGER start;
+} measurement_t;
+#else
+typedef struct timespec measurement_t;
+#endif
+
+static measurement_t start_measurement(void) {
+    measurement_t m;
+#ifdef _WIN32
+    QueryPerformanceCounter(&m.start);
+#else
+    clock_gettime(CLOCK_MONOTONIC, &m);
+#endif
+    return m;
+}
+
+static double end_measurement(measurement_t start) {
+#ifdef _WIN32
+    LARGE_INTEGER end, freq;
+    QueryPerformanceCounter(&end);
+    QueryPerformanceFrequency(&freq);
+    return (double)(end.QuadPart - start.start.QuadPart) / (double)freq.QuadPart;
+#else
+    struct timespec end;
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    return (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec) * 1e-9;
+#endif
 }
 
 // -----------------------------------------------
@@ -433,7 +467,7 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     printf("Linear system was generated.\n");
     fflush(stdout);
 
-    const clock_t compute_start = clock(); // <-- Start time measurement
+    const measurement_t compute_start = start_measurement(); // <-- Start time measurement 
 
 #if 0
     // pass the rhs vector through the solution (for debugging)
@@ -456,7 +490,7 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     }
 #endif
 
-    result->compute_time = (double)(clock() - compute_start) / CLOCKS_PER_SEC; // <-- End time measurement
+    result->compute_time = end_measurement(compute_start); // <-- End time measurement
 
     printf("Completed\n");
 
