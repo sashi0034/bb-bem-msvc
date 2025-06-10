@@ -20,6 +20,9 @@
 #include "TY/Shape3D.h"
 #include "TY/Transformer3D.h"
 
+#include "../bb-bem-msvc/src/bb_bem.h"
+#include "../bb-bem-msvc/src/stl_wrapper.hpp"
+
 using namespace TY;
 
 namespace
@@ -74,14 +77,11 @@ struct Title_PointLight_impl {
     PixelShader m_modelPS{};
     VertexShader m_modelVS{};
 
-    ConstantBuffer<DirectionLight_cb2> m_planeLight{};
-
     ConstantBuffer<DirectionLight_cb2> m_directionLight{};
 
     Model m_gridPlaneModel{};
 
-    Model m_sphereModel{};
-    Pose m_spherePose{};
+    Model m_targetModel{};
 
     Title_PointLight_impl() {
         resetCamera();
@@ -89,8 +89,8 @@ struct Title_PointLight_impl {
         const PixelShader defaultPS{ShaderParams::PS("asset/shader/model_pixel.hlsl")};
         const VertexShader defaultVS{ShaderParams::VS("asset/shader/model_vertex.hlsl")};
 
-        const PixelShader customPS{ShaderParams{.filename = shader_lambert, .entryPoint = "PS"}};
-        const VertexShader customVS{ShaderParams{.filename = shader_lambert, .entryPoint = "VS"}};
+        m_modelPS = PixelShader{ShaderParams{.filename = shader_lambert, .entryPoint = "PS"}};
+        m_modelVS = VertexShader{ShaderParams{.filename = shader_lambert, .entryPoint = "VS"}};
 
         const auto gridPlaneTexture = makeGridPlane(
             Size{1024, 1024}, 32, ColorF32{0.8}, ColorF32{0.9});
@@ -98,17 +98,9 @@ struct Title_PointLight_impl {
             ModelParams{}
             .setData(Shape3D::TexturePlane(gridPlaneTexture, Float2{100.0f, 100.0f}))
             .setShaders(defaultPS, defaultVS)
-            .setCB2(m_planeLight)
         };
 
-        m_sphereModel = Model{
-            ModelParams{}
-            .setData(Shape3D::Sphere(1.0f, ColorF32{1.0, 0.5, 0.3}))
-            .setShaders(customPS, customVS)
-            .setCB2(m_directionLight)
-        };
-
-        m_spherePose.position.y = 5.0f;
+        rebuildModel();
     }
 
     void Update() {
@@ -117,12 +109,8 @@ struct Title_PointLight_impl {
         }
 
         m_directionLight->lightDirection = m_camera.getMatrix().forward().normalized();
-        m_directionLight->lightColor = Float3{1.0f, 1.0f, 0.5f};
+        m_directionLight->lightColor = Float3{1.0f};
         m_directionLight.upload();
-
-        m_planeLight->lightDirection = Float3(0.5f, -1.0f, 0.5f).normalized();
-        m_planeLight->lightColor = Float3{1.0f, 1.0f, 1.0f};
-        m_planeLight.upload();
 
         {
             Pose pose{};
@@ -132,8 +120,7 @@ struct Title_PointLight_impl {
         }
 
         {
-            const Transformer3D t3d{m_spherePose.getMatrix()};
-            m_sphereModel.draw();
+            m_targetModel.draw();
         }
 
         {
@@ -225,6 +212,46 @@ struct Title_PointLight_impl {
         );
 
         Graphics3D::SetProjectionMatrix(m_projectionMat);
+    }
+
+    void rebuildModel() {
+        const std::string modelPath = "../input_data/torus-sd2x.stl";
+        const STLModel model{modelPath};
+
+        ModelData modelData{};
+
+        modelData.materials.push_back({}); // TODO
+        modelData.materials.back().parameters.diffuse = Float3{1.0f};
+
+        modelData.shapes.emplace_back();
+        auto& shape = modelData.shapes.back();
+        shape.materialIndex = 0; // TODO: マテリアルのインデックスを設定
+
+        for (int i = 0; i < model.facets().size(); ++i) {
+            const auto& facet = model.facets()[i];
+
+            const auto baseIndex = i * 3;
+            shape.indexBuffer.push_back(baseIndex);
+            shape.indexBuffer.push_back(baseIndex + 1);
+            shape.indexBuffer.push_back(baseIndex + 2);
+
+            for (int j = 0; j < 3; ++j) {
+                const auto& vertex = facet.v[j];
+
+                ModelVertex modelVertex{};
+                modelVertex.position = Float3{vertex.x, vertex.y, vertex.z};
+                modelVertex.normal = Float3{facet.normal.x, facet.normal.y, facet.normal.z};
+
+                shape.vertexBuffer.push_back(modelVertex);
+            }
+        }
+
+        m_targetModel = Model{
+            ModelParams{}
+            .setData(std::move(modelData))
+            .setShaders(m_modelPS, m_modelVS)
+            .setCB2(m_directionLight)
+        };
     }
 };
 
