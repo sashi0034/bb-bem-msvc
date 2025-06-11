@@ -165,6 +165,7 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">BB_NO_MAIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ClCompile Include="..\Viewer_s3d\bb_bem_wrapper.cpp" />
+    <ClCompile Include="RemoteViewer_TY.cpp" />
     <ClCompile Include="StandaloneViewer_TY.cpp" />
     <ClCompile Include="TomlConfigWrapper.cpp" />
     <Content Include="..\Viewer_s3d\App\config.toml" />
@@ -238,6 +239,7 @@
     <ClInclude Include="asset\shader\model.hlsli" />
     <ClInclude Include="LivePPAddon.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="RemoteViewer_TY.h" />
     <ClInclude Include="StandaloneViewer_TY.h" />
     <ClInclude Include="TomlConfigWrapper.h" />
   </ItemGroup>

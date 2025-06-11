@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
 
-#include "StandaloneViewer_TY.h"
+#include "RemoteViewer_TY.h"
 
 #include "LivePPAddon.h"
 #include "TomlConfigWrapper.h"
@@ -29,6 +29,11 @@ using namespace TY;
 
 namespace
 {
+    struct DirectionLight_cb2 {
+        alignas(16) Float3 lightDirection;
+        alignas(16) Float3 lightColor{};
+    };
+
     struct Pose {
         Float3 position{};
         Float3 rotation{}; // Euler angles in radians
@@ -66,13 +71,15 @@ namespace
     const std::string shader_lambert = "asset/shader/lambert.hlsl";
 }
 
-struct StandaloneViewer_TY {
+struct RemoteViewer_TY {
     Pose m_camera{};
 
     Mat4x4 m_projectionMat{};
 
     PixelShader m_modelPS{};
     VertexShader m_modelVS{};
+
+    ConstantBuffer<DirectionLight_cb2> m_directionLight{};
 
     Model m_gridPlaneModel{};
 
@@ -83,14 +90,16 @@ struct StandaloneViewer_TY {
     bb_compute_t m_currentCompute{};
     int8_t m_currentBatch{};
 
-    StandaloneViewer_TY() {
+    RemoteViewer_TY() {
         resetCamera();
 
         const PixelShader defaultPS{ShaderParams::PS("asset/shader/model_pixel.hlsl")};
         const VertexShader defaultVS{ShaderParams::VS("asset/shader/model_vertex.hlsl")};
 
-        m_modelPS = defaultPS;
-        m_modelVS = defaultVS;
+        m_modelPS = PixelShader{ShaderParams{.filename = shader_lambert, .entryPoint = "PS"}};
+        m_modelVS = VertexShader{ShaderParams{.filename = shader_lambert, .entryPoint = "VS"}};
+        // m_modelPS = defaultPS;
+        // m_modelVS = defaultVS;
 
         const auto gridPlaneTexture = makeGridPlane(
             Size{1024, 1024}, 32, ColorF32{0.8}, ColorF32{0.9});
@@ -107,6 +116,10 @@ struct StandaloneViewer_TY {
         if (not KeyShift.pressed()) {
             updateCamera();
         }
+
+        m_directionLight->lightDirection = m_camera.getMatrix().forward().normalized();
+        m_directionLight->lightColor = Float3{1.0f};
+        m_directionLight.upload();
 
         {
             Pose pose{};
@@ -136,6 +149,11 @@ struct StandaloneViewer_TY {
                         Math::ToDegrees(m_camera.rotation.x),
                         Math::ToDegrees(m_camera.rotation.y),
                         Math::ToDegrees(m_camera.rotation.z));
+
+            ImGui::Text("Light Direction: (%.2f, %.2f, %.2f)",
+                        m_directionLight->lightDirection.x,
+                        m_directionLight->lightDirection.y,
+                        m_directionLight->lightDirection.z);
 
             ImGui::End();
         }
@@ -311,12 +329,13 @@ struct StandaloneViewer_TY {
             ModelParams{}
             .setData(std::move(modelData))
             .setShaders(m_modelPS, m_modelVS)
+            .setCB2(m_directionLight)
         };
     }
 };
 
-void Viewer_TY::StandaloneViewer() {
-    StandaloneViewer_TY impl{};
+void Viewer_TY::RemoteViewer() {
+    RemoteViewer_TY impl{};
 
     while (System::Update()) {
 #ifdef _DEBUG
