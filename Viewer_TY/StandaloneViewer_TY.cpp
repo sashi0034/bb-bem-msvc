@@ -152,6 +152,30 @@ struct StandaloneViewer_TY {
 
             ImGui::End();
         }
+
+        {
+            ImGui::Begin("BB BEM");
+
+            ImGui::Text("Current Compute: %s", bb_bem_wrapper::GetNameU8(m_currentCompute).data());
+            ImGui::SameLine();
+            if (ImGui::Button("Next##m_currentCompute")) {
+                m_currentCompute = bb_bem_wrapper::NextIndex(m_currentCompute);
+                rebuildModel();
+            }
+
+            ImGui::Text("Current Batch: %d", m_currentBatch);
+            ImGui::SameLine();
+            if (ImGui::Button("Next##m_currentBatch")) {
+                m_currentBatch = (m_currentBatch + 1) % m_bb.para_batch_unaligned();
+                rebuildModel();
+            }
+
+            if (ImGui::Button("Recalculate")) {
+                calculate_bem();
+            }
+
+            ImGui::End();
+        }
     }
 
     void resetCamera() {

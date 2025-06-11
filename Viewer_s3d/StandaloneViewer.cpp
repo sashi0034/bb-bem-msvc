@@ -105,7 +105,7 @@ struct StandaloneViewer : IAddon {
 		}
 
 		if (SimpleGUI::Button(U"{}"_fmt(bb_bem_wrapper::GetName(m_currentCompute)), Vec2{20, 20})) {
-			m_currentCompute = static_cast<bb_compute_t>((m_currentCompute + 1) % (BB_COMPUTE_CUDA_WMMA + 1));
+			m_currentCompute = bb_bem_wrapper::NextIndex(m_currentCompute);
 			rebuildTriangleList();
 		}
 

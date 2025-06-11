@@ -59,6 +59,11 @@ void bb_bem_wrapper::ResultHolder::release() {
 	release_bb_result(&bb_cuda_wmma);
 }
 
+bb_compute_t bb_bem_wrapper::NextIndex(bb_compute_t compute) {
+	constexpr auto max_value = static_cast<int>(BB_COMPUTE_CUDA_WMMA);
+	return static_cast<bb_compute_t>((static_cast<int>(compute) + 1) % (max_value + 1));
+}
+
 std::string bb_bem_wrapper::GetNameU8(bb_compute_t compute) {
 	switch (compute) {
 	case BB_COMPUTE_NAIVE:

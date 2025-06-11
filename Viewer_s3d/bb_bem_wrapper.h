@@ -18,6 +18,8 @@ namespace bb_bem_wrapper
 		void release();
 	};
 
+	bb_compute_t NextIndex(bb_compute_t compute);
+
 	std::string GetNameU8(bb_compute_t compute);
 
 #ifdef SIV3D_PLATFORM
