@@ -249,6 +249,7 @@ struct StandaloneViewer_TY {
         const std::string modelPath = Viewer_TY::GetTomlConfigValueAsPath("input_path");
         const STLModel model{modelPath};
 
+        // 最大値を求める
         const auto& bb_result = m_bb.get(m_currentCompute);
         const auto& bb_input = bb_result.input;
         double maxSolAbs{};
@@ -263,6 +264,7 @@ struct StandaloneViewer_TY {
 
         ModelData modelData{};
 
+        // マテリアル生成: 正
         constexpr int colorResolution = 64;
         for (int i = 0; i < colorResolution; ++i) {
             auto color = HSV{ColorF32{0.97, 0.29, 0}};
@@ -272,6 +274,7 @@ struct StandaloneViewer_TY {
             modelData.materials.back().parameters.diffuse = color.toColorF().toFloat3();
         }
 
+        // マテリアル生成: 負
         for (int i = 0; i < colorResolution; ++i) {
             auto color = HSV{ColorF32{0.18, 0.35, 0.85}};
             color.s = (i + 1.0f) / static_cast<float>(colorResolution);
@@ -285,12 +288,11 @@ struct StandaloneViewer_TY {
             modelData.shapes[i].materialIndex = i;
         }
 
+        // シェイプ生成
         for (int fc_id = 0; fc_id < bb_input.nofc_unaligned; ++fc_id) {
             const double sol = bb_result.sol[fc_id][m_currentBatch];
             const int shapeIndex = (Abs(sol) / maxSolAbs) * colorResolution + (sol < 0.0 ? colorResolution : 0);
             auto& shape = modelData.shapes[shapeIndex];
-
-            std::cout << shapeIndex << " ";
 
             const auto& facet = model.facets()[fc_id];
 
@@ -310,6 +312,19 @@ struct StandaloneViewer_TY {
             }
         }
 
+        // 空のマテリアルを削除
+        for (int i = modelData.materials.size() - 1; i >= 0; --i) {
+            if (modelData.shapes[i].vertexBuffer.empty()) {
+                modelData.shapes.remove_at(i);
+                modelData.materials.remove_at(i);
+
+                // 後ろにあるマテリアルのインデックスを落とす
+                for (int j = i; j < modelData.shapes.size(); ++j) {
+                    modelData.shapes[j].materialIndex--;
+                }
+            }
+        }
+
         m_targetModel = Model{
             ModelParams{}
             .setData(std::move(modelData))
@@ -326,6 +341,7 @@ void Viewer_TY::StandaloneViewer() {
 #ifdef _DEBUG
         Util::AdvanceLivePP();
 #endif
+        Viewer_TY::AdvanceTomlConfig();
 
         impl.Update();
     }
