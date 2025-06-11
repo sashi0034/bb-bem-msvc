@@ -3,6 +3,7 @@
 #include "StandaloneViewer_TY.h"
 
 #include "LivePPAddon.h"
+#include "TomlConfigWrapper.h"
 #include "TY/ConstantBuffer.h"
 #include "TY/Graphics3D.h"
 #include "TY/KeyboardInput.h"
@@ -235,7 +236,7 @@ struct StandaloneViewer_TY {
     }
 
     bool calculate_bem_internal() {
-        const std::string filename = "../input_data/torus.stl";
+        const std::string filename = Viewer_TY::GetTomlConfigValueAsPath("input_path");
 
         if (bb_bem(filename.data(), BB_COMPUTE_NAIVE, &m_bb.bb_naive) != BB_OK) return false;
         if (bb_bem(filename.data(), BB_COMPUTE_CUDA, &m_bb.bb_cuda) != BB_OK) return false;
@@ -245,7 +246,7 @@ struct StandaloneViewer_TY {
     }
 
     void rebuildModel() {
-        const std::string modelPath = "../input_data/torus.stl";
+        const std::string modelPath = Viewer_TY::GetTomlConfigValueAsPath("input_path");
         const STLModel model{modelPath};
 
         const auto& bb_result = m_bb.get(m_currentCompute);

@@ -166,6 +166,7 @@
     </ClCompile>
     <ClCompile Include="..\Viewer_s3d\bb_bem_wrapper.cpp" />
     <ClCompile Include="StandaloneViewer_TY.cpp" />
+    <ClCompile Include="TomlConfigWrapper.cpp" />
     <Content Include="..\Viewer_s3d\App\config.toml" />
     <Content Include=".gitignore" />
     <Content Include="asset\shader\phong.hlsl" />
@@ -238,6 +239,7 @@
     <ClInclude Include="LivePPAddon.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="StandaloneViewer_TY.h" />
+    <ClInclude Include="TomlConfigWrapper.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Tsuyu/external\DirectXTex\DirectXTex\DirectXTex_Desktop_2022.vcxproj">
