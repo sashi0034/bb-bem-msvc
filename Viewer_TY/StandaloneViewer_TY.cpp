@@ -252,9 +252,6 @@ struct StandaloneViewer_TY {
     }
 
     void rebuildModel() {
-        const std::string modelPath = Viewer_TY::GetTomlConfigValueAsPath("input_path");
-        const STLModel model{modelPath};
-
         // 最大値を求める
         const auto& bb_result = m_bb.get(m_currentCompute);
         const auto& bb_input = bb_result.input;
@@ -275,6 +272,7 @@ struct StandaloneViewer_TY {
         for (int i = 0; i < colorResolution; ++i) {
             auto color = HSV{ColorF32{0.97, 0.29, 0}};
             color.s = (i + 1.0f) / static_cast<float>(colorResolution);
+            color.v = 1.0f;
 
             modelData.materials.push_back({});
             modelData.materials.back().parameters.diffuse = color.toColorF().toFloat3();
@@ -284,6 +282,7 @@ struct StandaloneViewer_TY {
         for (int i = 0; i < colorResolution; ++i) {
             auto color = HSV{ColorF32{0.18, 0.35, 0.85}};
             color.s = (i + 1.0f) / static_cast<float>(colorResolution);
+            color.v = 1.0f;
 
             modelData.materials.push_back({});
             modelData.materials.back().parameters.diffuse = color.toColorF().toFloat3();
@@ -297,22 +296,21 @@ struct StandaloneViewer_TY {
         // シェイプ生成
         for (int fc_id = 0; fc_id < bb_input.nofc_unaligned; ++fc_id) {
             const double sol = bb_result.sol[fc_id][m_currentBatch];
-            const int shapeIndex = (Abs(sol) / maxSolAbs) * colorResolution + (sol < 0.0 ? colorResolution : 0);
+            const int shapeIndex = (Abs(sol) / maxSolAbs) * (colorResolution - 1) + (sol < 0.0 ? colorResolution : 0);
             auto& shape = modelData.shapes[shapeIndex];
-
-            const auto& facet = model.facets()[fc_id];
 
             const auto baseIndex = shape.vertexBuffer.size();
             shape.indexBuffer.push_back(baseIndex);
             shape.indexBuffer.push_back(baseIndex + 1);
             shape.indexBuffer.push_back(baseIndex + 2);
 
-            for (int j = 0; j < 3; ++j) {
-                const auto& vertex = facet.v[j];
+            for (int j = 0; j < bb_input.nond_on_face /* 3 */; ++j) {
+                const int vertexId = bb_input.face2node[fc_id][j];
+                const auto& vertex = bb_input.np[vertexId];
 
                 ModelVertex modelVertex{};
                 modelVertex.position = Float3{vertex.x, vertex.y, vertex.z};
-                modelVertex.normal = Float3{facet.normal.x, facet.normal.y, facet.normal.z};
+                // modelVertex.normal = Float3{facet.normal.x, facet.normal.y, facet.normal.z};
 
                 shape.vertexBuffer.push_back(modelVertex);
             }
