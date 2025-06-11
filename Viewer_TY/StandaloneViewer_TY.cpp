@@ -156,6 +156,8 @@ struct StandaloneViewer_TY {
         {
             ImGui::Begin("BB BEM");
 
+            ImGui::Text("Facet Count: %d", m_bb.get(0).input.nofc);
+
             ImGui::Text("Current Compute: %s", bb_bem_wrapper::GetNameU8(m_currentCompute).data());
             ImGui::SameLine();
             if (ImGui::Button("Next##m_currentCompute")) {

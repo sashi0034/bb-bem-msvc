@@ -34,6 +34,10 @@ bb_result_t& bb_bem_wrapper::ResultHolder::get(bb_compute_t compute) {
 	}
 }
 
+bb_result_t& bb_bem_wrapper::ResultHolder::get(int compute) {
+	return get(static_cast<bb_compute_t>(compute));
+}
+
 int bb_bem_wrapper::ResultHolder::para_batch_unaligned() const {
 	return bb_naive.input.para_batch_unaligned;
 }

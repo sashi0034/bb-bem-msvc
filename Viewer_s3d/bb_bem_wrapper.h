@@ -11,6 +11,8 @@ namespace bb_bem_wrapper
 
 		bb_result_t& get(bb_compute_t compute);
 
+		bb_result_t& get(int compute);
+
 		int para_batch_unaligned() const;
 
 		void varifyResult();
