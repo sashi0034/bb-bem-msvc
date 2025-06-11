@@ -113,7 +113,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <ForcedIncludeFiles>pch.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>./;../Tsuyu/external/DirectXTex/DirectXTex;../Tsuyu/Tsuyu;../Tsuyu/external/imgui</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;../Tsuyu/external;../Tsuyu/Tsuyu;</AdditionalIncludeDirectories>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <MinimalRebuild>false</MinimalRebuild>
       <CreateHotpatchableImage>true</CreateHotpatchableImage>
@@ -140,7 +140,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <ForcedIncludeFiles>pch.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>./;../Tsuyu/external/DirectXTex/DirectXTex;../Tsuyu/Tsuyu;../Tsuyu/external/imgui</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;../Tsuyu/external;../Tsuyu/Tsuyu;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

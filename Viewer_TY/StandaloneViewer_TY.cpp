@@ -1,6 +1,5 @@
 ﻿#include "pch.h"
 
-#include "imgui.h"
 #include "StandaloneViewer_TY.h"
 
 #include "LivePPAddon.h"
@@ -173,7 +172,7 @@ struct StandaloneViewer_TY {
     }
 
     void resetCamera() {
-        m_camera.position = Float3{0.0f, 0.0f, 10.0f};
+        m_camera.position = Float3{0.0f, 0.0f, 1.0f};
         m_camera.rotation = Float3{-Math::PiF / 4.0f, 0.0f, 0.0f};
     }
 
