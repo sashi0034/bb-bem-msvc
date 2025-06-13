@@ -477,14 +477,14 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
         }
     }
 #else
-    for (int n = 0; n < input->para_batch_unaligned; ++n) {
-        if (compute == BB_COMPUTE_NAIVE) {
+    if (compute == BB_COMPUTE_NAIVE) {
+        for (int n = 0; n < input->para_batch_unaligned; ++n) {
             bicgstab_naive(result->dim, A, rhs[n], result->sol[n], TOR, MAX_STEPS);
-        } else if (compute == BB_COMPUTE_CUDA) {
-            bicgstab_cuda(result->dim, A, rhs[n], result->sol[n], TOR, MAX_STEPS);
-        } else {
-            printf("Error: Unknown compute type\n");
         }
+    } else if (compute == BB_COMPUTE_CUDA) {
+        serial_bicgstab_cuda(input->para_batch_unaligned, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
+    } else {
+        printf("Error: Unknown compute type\n");
     }
 #endif
 

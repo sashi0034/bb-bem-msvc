@@ -5,11 +5,12 @@
 extern "C" {
 #endif // __cplusplus
 
-void bicgstab_cuda(
+void serial_bicgstab_cuda(
+    int batch_size,
     int dim,
     double** A, // in [dim][dim]
-    double* b, // in [dim]
-    double* x, // inout [dim]
+    double** b, // in [batch][dim]
+    double** x, // inout [batch][dim]
     double tor,
     int max_steps
 );

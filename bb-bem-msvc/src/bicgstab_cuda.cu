@@ -190,6 +190,11 @@ __global__ static void kernel_update_r(
     }
 }
 
+static double *d_A, *d_b, *d_x;
+static double *d_p, *d_r, *d_r0, *d_t, *d_Ap, *d_Akp, *d_kt, *d_Akt, *d_kp;
+static double *d_bnorm, *d_rnorm, *d_nom, *d_nom_old, *d_den, *d_alpha, *d_beta, *d_zeta, *d_tmp;
+static double* s_tmp;
+
 extern "C" void bicgstab_cuda(
     int dim,
     double** A /* in [dim] */,
@@ -204,37 +209,10 @@ extern "C" void bicgstab_cuda(
     const size_t batch_bytes = static_cast<size_t>(batch) * sizeof(double);
 
     // Device buffers
-    double *d_A, *d_b, *d_x;
-    CUDA_CHECK(cudaMalloc(&d_A, dim_dim_bytes));
-    CUDA_CHECK(cudaMalloc(&d_b, dim_batch_bytes));
-    CUDA_CHECK(cudaMalloc(&d_x, dim_batch_bytes));
 
     CUDA_CHECK(cudaMemcpy(d_A, A[0], dim_dim_bytes, cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_b, b, dim_batch_bytes, cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_x, x, dim_batch_bytes, cudaMemcpyHostToDevice));
-
-    // Work arrays
-    double *d_p, *d_r, *d_r0, *d_t, *d_Ap, *d_Akp, *d_kt, *d_Akt, *d_kp;
-    cudaMalloc(&d_p, dim_batch_bytes);
-    cudaMalloc(&d_r, dim_batch_bytes);
-    cudaMalloc(&d_r0, dim_batch_bytes);
-    cudaMalloc(&d_t, dim_batch_bytes);
-    cudaMalloc(&d_Ap, dim_batch_bytes);
-    cudaMalloc(&d_Akp, dim_batch_bytes);
-    cudaMalloc(&d_kt, dim_batch_bytes);
-    cudaMalloc(&d_Akt, dim_batch_bytes);
-    cudaMalloc(&d_kp, dim_batch_bytes);
-
-    double *d_bnorm, *d_rnorm, *d_nom, *d_nom_old, *d_den, *d_alpha, *d_beta, *d_zeta, *d_tmp;
-    cudaMalloc(&d_bnorm, batch_bytes);
-    cudaMalloc(&d_rnorm, batch_bytes);
-    cudaMalloc(&d_nom, batch_bytes);
-    cudaMalloc(&d_nom_old, batch_bytes);
-    cudaMalloc(&d_den, batch_bytes);
-    cudaMalloc(&d_alpha, batch_bytes);
-    cudaMalloc(&d_beta, batch_bytes);
-    cudaMalloc(&d_zeta, batch_bytes);
-    cudaMalloc(&d_tmp, batch_bytes);
 
     // -----------------------------------------------
 
@@ -258,13 +236,11 @@ extern "C" void bicgstab_cuda(
     cudaMemset(d_beta, 0, batch_bytes);
     cudaMemset(d_zeta, 0, batch_bytes);
 
-    double* tmp = static_cast<double*>(malloc(sizeof(double) * batch)); // <-- Allocation: tmp
-
     // if (rnorm / bnorm < tor) { goto finalize; } // early exit
     kernel_div<<<blocks1d, threads1d>>>(batch, d_rnorm, d_bnorm, d_tmp);
-    cudaMemcpy(tmp, d_tmp, batch_bytes, cudaMemcpyDeviceToHost);
-    printf("Original relative residual norm [0] = %20.14e\n", tmp[0]);
-    if (batch_lt(batch, tmp, tor)) { goto finalize; }
+    cudaMemcpy(s_tmp, d_tmp, batch_bytes, cudaMemcpyDeviceToHost);
+    printf("Original relative residual norm [0] = %20.14e\n", s_tmp[0]);
+    if (batch_lt(batch, s_tmp, tor)) { goto finalize; }
 
     // BiCGSTAB iteration 
     for (int step = 1; step <= max_steps; ++step) {
@@ -327,13 +303,51 @@ extern "C" void bicgstab_cuda(
 
         // if (rnorm / bnorm < tor) { break; }
         kernel_div<<<blocks1d, threads1d>>>(batch, d_rnorm, d_bnorm, d_tmp);
-        cudaMemcpy(tmp, d_tmp, batch_bytes, cudaMemcpyDeviceToHost);
-        printf("  Step %d relative residual norm [0] = %20.14e\n", step, tmp[0]);
-        if (batch_lt(batch, tmp, tor)) { break; }
+        cudaMemcpy(s_tmp, d_tmp, batch_bytes, cudaMemcpyDeviceToHost);
+        printf("  Step %d relative residual norm [0] = %20.14e\n", step, s_tmp[0]);
+        if (batch_lt(batch, s_tmp, tor)) { break; }
     }
 
 finalize:
     cudaMemcpy(x, d_x, dim_batch_bytes, cudaMemcpyDeviceToHost);
+}
+
+void serial_bicgstab_cuda(int batch_size, int dim, double** A, double** b, double** x, double tor, int max_steps) {
+    constexpr int batch = 1;
+    const size_t dim_dim_bytes = static_cast<size_t>(dim) * dim * sizeof(double);
+    const size_t dim_batch_bytes = static_cast<size_t>(dim) * batch * sizeof(double);
+    const size_t batch_bytes = static_cast<size_t>(batch) * sizeof(double);
+
+    CUDA_CHECK(cudaMalloc(&d_A, dim_dim_bytes));
+    CUDA_CHECK(cudaMalloc(&d_b, dim_batch_bytes));
+    CUDA_CHECK(cudaMalloc(&d_x, dim_batch_bytes));
+
+    // Work arrays
+    cudaMalloc(&d_p, dim_batch_bytes);
+    cudaMalloc(&d_r, dim_batch_bytes);
+    cudaMalloc(&d_r0, dim_batch_bytes);
+    cudaMalloc(&d_t, dim_batch_bytes);
+    cudaMalloc(&d_Ap, dim_batch_bytes);
+    cudaMalloc(&d_Akp, dim_batch_bytes);
+    cudaMalloc(&d_kt, dim_batch_bytes);
+    cudaMalloc(&d_Akt, dim_batch_bytes);
+    cudaMalloc(&d_kp, dim_batch_bytes);
+
+    cudaMalloc(&d_bnorm, batch_bytes);
+    cudaMalloc(&d_rnorm, batch_bytes);
+    cudaMalloc(&d_nom, batch_bytes);
+    cudaMalloc(&d_nom_old, batch_bytes);
+    cudaMalloc(&d_den, batch_bytes);
+    cudaMalloc(&d_alpha, batch_bytes);
+    cudaMalloc(&d_beta, batch_bytes);
+    cudaMalloc(&d_zeta, batch_bytes);
+    cudaMalloc(&d_tmp, batch_bytes);
+
+    s_tmp = static_cast<double*>(malloc(sizeof(double) * batch)); // <-- Allocation: tmp
+
+    for (int n = 0; n < batch_size; ++n) {
+        bicgstab_cuda(dim, A, b[n], x[n], tor, max_steps);
+    }
 
     cudaFree(d_A);
     cudaFree(d_b);
@@ -357,5 +371,5 @@ finalize:
     cudaFree(d_zeta);
     cudaFree(d_tmp);
 
-    free(tmp);
+    free(s_tmp);
 }
