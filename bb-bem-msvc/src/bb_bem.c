@@ -20,6 +20,8 @@
 #include "bicgstab_cuda.h"
 #include "bicgstab_cuda_wmma.h"
 
+static int s_default_para_batch = 8;
+
 #if !defined(BB_NO_MAIN)
 int main(int argc, char* argv[]) {
     bb_result_t result;
@@ -50,6 +52,9 @@ int main(int argc, char* argv[]) {
                 printf("Unknown compute mode: %s\n", argv[i]);
                 return 1;
             }
+        } else if (strcmp(argv[i], "--batch") == 0 && i + 1 < argc) {
+            ++i;
+            s_default_para_batch = atoi(argv[i]);
         } else {
             printf("Unknown argument: %s\n", argv[i]);
             return 1;
@@ -317,7 +322,7 @@ static bb_status_t read_input_from_stl(const char* filename, bb_input_t* input) 
     input->ndble_para_fc = 0;
 
     // Set value: para_batch
-    input->para_batch_unaligned = 8;
+    input->para_batch_unaligned = s_default_para_batch;
     input->para_batch = align8(input->para_batch_unaligned);
 
     printf("Number of nodes=%d Number of faces=%d\n", input->nond, input->nofc);

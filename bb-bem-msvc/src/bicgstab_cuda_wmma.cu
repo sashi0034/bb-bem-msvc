@@ -5,6 +5,12 @@ using namespace nvcuda;
 
 #include "bicgstab_cuda_wmma.h"
 
+#ifndef NO_TRACE
+#define TRACE(...) printf(__VA_ARGS__)
+#else
+#define TRACE(...) do {} while (0)
+#endif
+
 #define CUDA_CHECK(err) do { \
     cudaError_t _e = (err); \
     if (_e != cudaSuccess) { \
@@ -336,7 +342,7 @@ extern "C" void bicgstab_cuda_wmma(
     // if (rnorm / bnorm < tor) { goto finalize; } // early exit
     kernel_div<<<blocks1d, threads1d>>>(batch, d_rnorm, d_bnorm, d_tmp);
     cudaMemcpy(tmp, d_tmp, batch_bytes, cudaMemcpyDeviceToHost);
-    printf("Original relative residual norm [0] = %20.14e\n", tmp[0]);
+    TRACE("Original relative residual norm [0] = %20.14e\n", tmp[0]);
     if (batch_lt(batch, tmp, tor)) { goto finalize; }
 
     // BiCGSTAB iteration 
@@ -404,7 +410,7 @@ extern "C" void bicgstab_cuda_wmma(
         // if (rnorm / bnorm < tor) { break; }
         kernel_div<<<blocks1d, threads1d>>>(batch, d_rnorm, d_bnorm, d_tmp);
         cudaMemcpy(tmp, d_tmp, batch_bytes, cudaMemcpyDeviceToHost);
-        printf("  Step %d relative residual norm [0] = %20.14e\n", step, tmp[0]);
+        TRACE("  Step %d relative residual norm [0] = %20.14e\n", step, tmp[0]);
         if (batch_lt(batch, tmp, tor)) { break; }
     }
 

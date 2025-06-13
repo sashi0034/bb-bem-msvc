@@ -5,6 +5,12 @@
 
 #include "bicgstab_naive.h"
 
+#ifndef NO_TRACE
+#define TRACE(...) printf(__VA_ARGS__)
+#else
+#define TRACE(...) do {} while (0)
+#endif
+
 static void** allocate_matrix(size_t rows, size_t cols, size_t elem_size) {
     void** array = (void**)malloc(sizeof(void*) * rows);
     if (!array) return NULL;
@@ -220,7 +226,7 @@ void bicgstab_naive(
 
     // if (rnorm / bnorm < tor) {  goto finalize; }
     batch_div(batch, rnorm, bnorm, tmp);
-    printf("Original relative residual norm [0] = %20.14e\n", tmp[0]);
+    TRACE("Original relative residual norm [0] = %20.14e\n", tmp[0]);
     if (batch_lt(batch, tmp, tor)) { goto finalize; }
 
     for (int n = 0; n < batch; ++n) {
@@ -318,7 +324,7 @@ void bicgstab_naive(
 
         // if (rnorm / bnorm < tor) { break; }
         batch_div(batch, rnorm, bnorm, tmp);
-        printf("  Step %d relative residual norm [0] = %20.14e \n", step, tmp[0]);
+        TRACE("  Step %d relative residual norm [0] = %20.14e \n", step, tmp[0]);
         if (batch_lt(batch, tmp, tor)) { break; }
     }
     // -----------------------------------------------
@@ -332,7 +338,7 @@ void bicgstab_naive(
     batch_dot_product(batch, dim, r, r, rnorm); // dot_product(dim, r, r)
     batch_sqrt(batch, rnorm, rnorm); // sqrt(dot_product(dim, r, r))
 
-    printf("Relative residual norm [0] = %20.14e \n", rnorm[0] / bnorm[0]);
+    TRACE("Relative residual norm [0] = %20.14e \n", rnorm[0] / bnorm[0]);
 
     // -----------------------------------------------
 
