@@ -26,8 +26,8 @@ bb_result_t& bb_bem_wrapper::ResultHolder::get(bb_compute_t compute) {
 		return bb_naive;
 	case BB_COMPUTE_CUDA:
 		return bb_cuda;
-	case BB_COMPUTE_CUDA_WMMA:
-		return bb_cuda_wmma;
+	// case BB_COMPUTE_CUDA_WMMA:
+	// 	return bb_cuda_wmma;
 	default:
 		assert(false);
 		return bb_naive; // Should never reach here
@@ -64,7 +64,7 @@ void bb_bem_wrapper::ResultHolder::release() {
 }
 
 bb_compute_t bb_bem_wrapper::NextIndex(bb_compute_t compute) {
-	constexpr auto max_value = static_cast<int>(BB_COMPUTE_CUDA_WMMA);
+	constexpr auto max_value = static_cast<int>(BB_COMPUTE_CUDA);
 	return static_cast<bb_compute_t>((static_cast<int>(compute) + 1) % (max_value + 1));
 }
 
@@ -74,8 +74,8 @@ std::string bb_bem_wrapper::GetNameU8(bb_compute_t compute) {
 		return "Naive";
 	case BB_COMPUTE_CUDA:
 		return "CUDA";
-	case BB_COMPUTE_CUDA_WMMA:
-		return "CUDA WMMA";
+	// case BB_COMPUTE_CUDA_WMMA:
+	// 	return "CUDA WMMA";
 	default:
 		assert(false);
 		return {};
