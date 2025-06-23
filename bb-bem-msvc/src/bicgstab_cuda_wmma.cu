@@ -38,6 +38,25 @@ __host__ __device__ int tcl_at(int row, int col, int num_cols) {
     return ((coarse_row * tiles_per_row + coarse_col) << 6) + (fine_row << 3) + fine_col;
 }
 
+// __global__ static void kernel_matvec(
+//     int batch,
+//     int dim,
+//     const double* __restrict__ mat /* [dim * dim] */,
+//     const double* __restrict__ P /* [dim * batch] */,
+//     double* __restrict__ Q /* out [dim * batch] */
+// ) {
+//     const int row = blockIdx.x * blockDim.x + threadIdx.x;
+//     const int n = blockIdx.y * blockDim.y + threadIdx.y;
+//     if (row < dim && n < batch) {
+//         double sum = 0.0;
+//         for (int col = 0; col < dim; ++col) {
+//             sum += mat[tcl_at(row, col, dim)] * P[tcl_at(col, n, batch)];;
+//         }
+//
+//         Q[tcl_at(row, n, batch)] = sum;
+//     }
+// }
+
 // Kernel: Q[row, n] = sum_col A[row, col] * P[col, n]
 // All stored in row-major in global memory.
 __global__ void wmma_matvec(
