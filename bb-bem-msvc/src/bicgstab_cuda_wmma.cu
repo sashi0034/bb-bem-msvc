@@ -27,11 +27,15 @@ static constexpr int WMMA_K = 4;
 __host__ __device__ int tensorcore_layout(int row, int col, int num_cols) {
     static_assert(WMMA_M == 8 && WMMA_N == 8, "Must be 8 for this implementation");
 
-    const int coarse_row = row / 8;
-    const int coarse_col = col / 8;
-    const int fine_row = row % 8;
-    const int fine_col = col % 8;
-    return (coarse_row * (num_cols / 8) + coarse_col) * 64 + (fine_row * 8 + fine_col);
+    const int tiles_per_row = num_cols >> 3; // num_cols / 8
+
+    const int coarse_row = row >> 3; // row / 8
+    const int coarse_col = col >> 3; // col / 8
+    const int fine_row = row & 7; // row % 8
+    const int fine_col = col & 7; // col % 8
+
+    // (coarse_row * tiles_per_row + coarse_col) * 64 + (fine_row * 8 + fine_col)
+    return ((coarse_row * tiles_per_row + coarse_col) << 6) + (fine_row << 3) + fine_col;
 }
 
 // Kernel: Q[row, n] = sum_col A[row, col] * P[col, n]
