@@ -24,7 +24,7 @@ static constexpr int WMMA_M = 8;
 static constexpr int WMMA_N = 8;
 static constexpr int WMMA_K = 4;
 
-__host__ __device__ int tensorcore_layout(int row, int col, int num_cols) {
+__host__ __device__ int tcl_at(int row, int col, int num_cols) {
     static_assert(WMMA_M == 8 && WMMA_N == 8, "Must be 8 for this implementation");
 
     const int tiles_per_row = num_cols >> 3; // num_cols / 8
@@ -62,8 +62,8 @@ __global__ void wmma_matvec(
         wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, double, wmma::row_major> a_frag; // 8x4
         wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, double, wmma::row_major> b_frag; // 4x8
 
-        const double* a_tile_ptr = &A[tensorcore_layout(coarse_row * WMMA_M, k_tile * WMMA_K, dim)];
-        const double* b_tile_ptr = &P[tensorcore_layout(k_tile * WMMA_K, coarse_col * WMMA_N, batch)];
+        const double* a_tile_ptr = &A[tcl_at(coarse_row * WMMA_M, k_tile * WMMA_K, dim)];
+        const double* b_tile_ptr = &P[tcl_at(k_tile * WMMA_K, coarse_col * WMMA_N, batch)];
 
         wmma::load_matrix_sync(a_frag, a_tile_ptr, 8);
         wmma::load_matrix_sync(b_frag, b_tile_ptr, 8);
@@ -71,7 +71,7 @@ __global__ void wmma_matvec(
         wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
     }
 
-    double* c_tile_ptr = &Q[tensorcore_layout(coarse_row * WMMA_M, coarse_col * WMMA_N, batch)];
+    double* c_tile_ptr = &Q[tcl_at(coarse_row * WMMA_M, coarse_col * WMMA_N, batch)];
     wmma::store_matrix_sync(c_tile_ptr, c_frag, 8, wmma::mem_row_major);
 }
 
@@ -100,12 +100,12 @@ __global__ static void kernel_residual(
     const int row = blockIdx.x * blockDim.x + threadIdx.x;
     const int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        double val = B[tensorcore_layout(row, n, batch)];
+        double val = B[tcl_at(row, n, batch)];
         for (int col = 0; col < dim; ++col) {
-            val -= A[tensorcore_layout(row, col, dim)] * X[tensorcore_layout(col, n, batch)];
+            val -= A[tcl_at(row, col, dim)] * X[tcl_at(col, n, batch)];
         }
 
-        R[tensorcore_layout(row, n, batch)] = val;
+        R[tcl_at(row, n, batch)] = val;
     }
 }
 
@@ -121,7 +121,7 @@ __global__ static void kernel_dot_product(
     if (n < batch) {
         double sum = 0.0;
         for (int i = 0; i < dim; ++i) {
-            sum += X[tensorcore_layout(i, n, batch)] * Y[tensorcore_layout(i, n, batch)];
+            sum += X[tcl_at(i, n, batch)] * Y[tcl_at(i, n, batch)];
         }
 
         out[n] = sum;
@@ -181,8 +181,8 @@ __global__ static void kernel_update_p(
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        const int idx = tensorcore_layout(row, n, batch);
-        out[tensorcore_layout(row, n, batch)] = r[idx] + beta[n] * (p[idx] - zeta[n] * Ap[idx]);
+        const int idx = tcl_at(row, n, batch);
+        out[tcl_at(row, n, batch)] = r[idx] + beta[n] * (p[idx] - zeta[n] * Ap[idx]);
     }
 }
 
@@ -198,7 +198,7 @@ __global__ static void kernel_update_t(
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        const int idx = tensorcore_layout(row, n, batch);
+        const int idx = tcl_at(row, n, batch);
         t[idx] = r[idx] - alpha[n] * Akp[idx];
     }
 }
@@ -216,7 +216,7 @@ __global__ static void kernel_update_x(
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        const int idx = tensorcore_layout(row, n, batch);
+        const int idx = tcl_at(row, n, batch);
         x[idx] += alpha[n] * kp[idx] + zeta[n] * kt[idx];
     }
 }
@@ -233,7 +233,7 @@ __global__ static void kernel_update_r(
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        const int idx = tensorcore_layout(row, n, batch);
+        const int idx = tcl_at(row, n, batch);
         r[idx] = t[idx] - zeta[n] * Akt[idx];
     }
 }
@@ -412,5 +412,5 @@ finalize:
 }
 
 extern "C" int tensorcore_layout_at(int row, int col, int num_cols) {
-    return tensorcore_layout(row, col, num_cols);
+    return tcl_at(row, col, num_cols);
 }
