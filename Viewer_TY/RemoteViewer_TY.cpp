@@ -96,8 +96,8 @@ struct RemoteViewer_TY {
         const PixelShader defaultPS{ShaderParams::PS("asset/shader/model_pixel.hlsl")};
         const VertexShader defaultVS{ShaderParams::VS("asset/shader/model_vertex.hlsl")};
 
-        m_modelPS = PixelShader{ShaderParams{.filename = shader_lambert, .entryPoint = "PS"}};
-        m_modelVS = VertexShader{ShaderParams{.filename = shader_lambert, .entryPoint = "VS"}};
+        m_modelPS = PixelShader{ShaderParams{.filepath = shader_lambert, .entryPoint = "PS"}};
+        m_modelVS = VertexShader{ShaderParams{.filepath = shader_lambert, .entryPoint = "VS"}};
         // m_modelPS = defaultPS;
         // m_modelVS = defaultVS;
 
