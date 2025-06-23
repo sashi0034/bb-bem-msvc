@@ -20,53 +20,19 @@ using namespace nvcuda;
     } \
 } while (0)
 
-static void batch_matvec(
-    int batch,
-    int dim,
-    double** mat /* [dim][dim] */,
-    double** P /* [dim][batch] */,
-    double** Q /* out [dim][batch] */
-) {
-    for (int row = 0; row < dim; ++row) {
-        for (int n = 0; n < batch; ++n) {
-            Q[row][n] = 0.0;
-        }
-    }
-
-    for (int row = 0; row < dim; ++row) {
-        for (int col = 0; col < dim; ++col) {
-            for (int n = 0; n < batch; ++n) {
-                Q[row][n] += mat[row][col] * P[col][n];
-            }
-        }
-    }
-}
-
-// Kernel: Q[row, n] = sum_col A[row, col] * P[col, n]
-__global__ static void kernel_matvec(
-    int batch,
-    int dim,
-    const double* __restrict__ mat /* [dim * dim] */,
-    const double* __restrict__ P /* [dim * batch] */,
-    double* __restrict__ Q /* out [dim * batch] */
-) {
-    const int row = blockIdx.x * blockDim.x + threadIdx.x;
-    const int n = blockIdx.y * blockDim.y + threadIdx.y;
-    if (row < dim && n < batch) {
-        double sum = 0.0;
-        const double* Arow = mat + row * dim;
-        const double* Pcol = P + n;
-        for (int col = 0; col < dim; ++col) {
-            sum += Arow[col] * Pcol[col * batch];
-        }
-
-        Q[row * batch + n] = sum;
-    }
-}
-
 static constexpr int WMMA_M = 8;
 static constexpr int WMMA_N = 8;
 static constexpr int WMMA_K = 4;
+
+__host__ __device__ int tensorcore_layout(int row, int col, int num_cols) {
+    static_assert(WMMA_M == 8 && WMMA_N == 8, "Must be 8 for this implementation");
+
+    const int coarse_row = row / 8;
+    const int coarse_col = col / 8;
+    const int fine_row = row % 8;
+    const int fine_col = col % 8;
+    return (coarse_row * (num_cols / 8) + coarse_col) * 64 + (fine_row * 8 + fine_col);
+}
 
 // Kernel: Q[row, n] = sum_col A[row, col] * P[col, n]
 // All stored in row-major in global memory.
@@ -78,8 +44,11 @@ __global__ void wmma_matvec(
     double* __restrict__ Q /* out [dim * batch] */
 ) {
     // index of this tile
-    const int block_row = blockIdx.x * WMMA_M;
-    const int block_col = blockIdx.y * WMMA_N;
+    const int coarse_row = blockIdx.x;
+    const int coarse_col = blockIdx.y;
+
+    // const int block_row = blockIdx.x * WMMA_M;
+    // const int block_col = blockIdx.y * WMMA_N;
 
     wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, double> c_frag;
     wmma::fill_fragment(c_frag, 0.0);
@@ -89,17 +58,17 @@ __global__ void wmma_matvec(
         wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, double, wmma::row_major> a_frag; // 8x4
         wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, double, wmma::row_major> b_frag; // 4x8
 
-        const double* a_tile_ptr = A + (block_row * dim) + (k_tile * WMMA_K);
-        const double* b_tile_ptr = P + (k_tile * WMMA_K) * batch + block_col;
+        const double* a_tile_ptr = &A[tensorcore_layout(coarse_row * WMMA_M, k_tile * WMMA_K, dim)];
+        const double* b_tile_ptr = &P[tensorcore_layout(k_tile * WMMA_K, coarse_col * WMMA_N, batch)];
 
-        wmma::load_matrix_sync(a_frag, a_tile_ptr, dim);
-        wmma::load_matrix_sync(b_frag, b_tile_ptr, batch);
+        wmma::load_matrix_sync(a_frag, a_tile_ptr, 8);
+        wmma::load_matrix_sync(b_frag, b_tile_ptr, 8);
 
         wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
     }
 
-    double* c_tile_ptr = Q + (block_row * batch) + block_col;
-    wmma::store_matrix_sync(c_tile_ptr, c_frag, batch, wmma::mem_row_major);
+    double* c_tile_ptr = &Q[tensorcore_layout(coarse_row * WMMA_M, coarse_col * WMMA_N, batch)];
+    wmma::store_matrix_sync(c_tile_ptr, c_frag, 8, wmma::mem_row_major);
 }
 
 static void launch_wmma_matvec(
@@ -127,14 +96,12 @@ __global__ static void kernel_residual(
     const int row = blockIdx.x * blockDim.x + threadIdx.x;
     const int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        double val = B[row * batch + n];
-        const double* Arow = A + row * dim;
-        const double* Xcol = X + n;
+        double val = B[tensorcore_layout(row, n, batch)];
         for (int col = 0; col < dim; ++col) {
-            val -= Arow[col] * Xcol[col * batch];
+            val -= A[tensorcore_layout(row, col, dim)] * X[tensorcore_layout(col, n, batch)];
         }
 
-        R[row * batch + n] = val;
+        R[tensorcore_layout(row, n, batch)] = val;
     }
 }
 
@@ -149,10 +116,8 @@ __global__ static void kernel_dot_product(
     const int n = blockIdx.x * blockDim.x + threadIdx.x;
     if (n < batch) {
         double sum = 0.0;
-        const double* Xcol = X + n;
-        const double* Ycol = Y + n;
         for (int i = 0; i < dim; ++i) {
-            sum += Xcol[i * batch] * Ycol[i * batch];
+            sum += X[tensorcore_layout(i, n, batch)] * Y[tensorcore_layout(i, n, batch)];
         }
 
         out[n] = sum;
@@ -202,7 +167,7 @@ static int batch_lt(int batch, const double* x, double y) {
 __global__ static void kernel_update_p(
     int batch,
     int dim,
-    double* __restrict__ out /* out [batch] */,
+    double* __restrict__ out /* out [dim * batch] */,
     const double* __restrict__ r /* [dim * batch] */,
     const double* __restrict__ p /* [dim * batch] */,
     const double* __restrict__ Ap /* [dim * batch] */,
@@ -212,8 +177,8 @@ __global__ static void kernel_update_p(
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        const int idx = row * batch + n;
-        out[idx] = r[idx] + beta[n] * (p[idx] - zeta[n] * Ap[idx]);
+        const int idx = tensorcore_layout(row, n, batch);
+        out[tensorcore_layout(row, n, batch)] = r[idx] + beta[n] * (p[idx] - zeta[n] * Ap[idx]);
     }
 }
 
@@ -229,7 +194,7 @@ __global__ static void kernel_update_t(
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        int idx = row * batch + n;
+        const int idx = tensorcore_layout(row, n, batch);
         t[idx] = r[idx] - alpha[n] * Akp[idx];
     }
 }
@@ -247,7 +212,7 @@ __global__ static void kernel_update_x(
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        int idx = row * batch + n;
+        const int idx = tensorcore_layout(row, n, batch);
         x[idx] += alpha[n] * kp[idx] + zeta[n] * kt[idx];
     }
 }
@@ -264,7 +229,7 @@ __global__ static void kernel_update_r(
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < dim && n < batch) {
-        int idx = row * batch + n;
+        const int idx = tensorcore_layout(row, n, batch);
         r[idx] = t[idx] - zeta[n] * Akt[idx];
     }
 }
@@ -440,4 +405,8 @@ finalize:
     cudaFree(d_tmp);
 
     free(tmp);
+}
+
+extern "C" int tensorcore_layout_at(int row, int col, int num_cols) {
+    return tensorcore_layout(row, col, num_cols);
 }
