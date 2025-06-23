@@ -539,7 +539,7 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
         double** sol_cloned = clone_matrix(result->dim, input->para_batch, result->sol);
         for (int row = 0; row < result->dim; ++row) {
             for (int col = 0; col < input->para_batch; ++col) {
-                result->sol[0][tensorcore_layout_at(row, col, input->para_batch)] = sol_cloned[row][col];
+                result->sol[row][col] = sol_cloned[0][tensorcore_layout_at(row, col, input->para_batch)];
             }
         }
 
