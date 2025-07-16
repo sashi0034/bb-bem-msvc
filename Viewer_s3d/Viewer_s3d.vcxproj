@@ -166,7 +166,7 @@
       </ForcedIncludeFiles>
       <CodeGeneration>compute_80,sm_80;</CodeGeneration>
     </CudaCompile>
-    <CudaCompile Include="..\bb-bem-msvc\src\bicgstab_cuda_cublas.cpp">
+    <CudaCompile Include="..\bb-bem-msvc\src\bicgstab_cuda_cublas.cu">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
