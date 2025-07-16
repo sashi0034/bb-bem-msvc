@@ -1,6 +1,8 @@
 ﻿#include <mma.h>
 using namespace nvcuda;
 
+#include <cublas_v2.h>
+
 #include <stdio.h>
 
 #include "bicgstab_cuda.h"
@@ -205,6 +207,9 @@ extern "C" void bicgstab_cuda_cublas(
     double tor,
     int max_steps
 ) {
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+
     const size_t dim_dim_bytes = static_cast<size_t>(dim) * dim * sizeof(double);
     const size_t dim_batch_bytes = static_cast<size_t>(dim) * batch * sizeof(double);
     const size_t batch_bytes = static_cast<size_t>(batch) * sizeof(double);
@@ -364,4 +369,6 @@ finalize:
     cudaFree(d_tmp);
 
     free(tmp);
+
+    cublasDestroy(handle);
 }
