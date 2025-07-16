@@ -55,16 +55,18 @@ void bb_bem_wrapper::ResultHolder::varifyResult() {
 	std::cout << std::format("Compute time (Naive): {} sec\n", bb_naive.compute_time);
 	std::cout << std::format("Compute time (Cuda): {} sec\n", bb_cuda.compute_time);
 	std::cout << std::format("Compute time (Cuda-WMMA): {} sec\n", bb_cuda_wmma.compute_time);
+	std::cout << std::format("Compute time (Cuda-cuBLAS): {} sec\n", bb_cuda_cublas.compute_time);
 }
 
 void bb_bem_wrapper::ResultHolder::release() {
 	release_bb_result(&bb_naive);
 	release_bb_result(&bb_cuda);
 	release_bb_result(&bb_cuda_wmma);
+	release_bb_result(&bb_cuda_cublas);
 }
 
 bb_compute_t bb_bem_wrapper::NextIndex(bb_compute_t compute) {
-	constexpr auto max_value = static_cast<int>(BB_COMPUTE_CUDA_WMMA);
+	constexpr auto max_value = static_cast<int>(BB_COMPUTE_CUDA_CUBLAS);
 	return static_cast<bb_compute_t>((static_cast<int>(compute) + 1) % (max_value + 1));
 }
 
@@ -76,6 +78,8 @@ std::string bb_bem_wrapper::GetNameU8(bb_compute_t compute) {
 		return "CUDA";
 	case BB_COMPUTE_CUDA_WMMA:
 		return "CUDA WMMA";
+	case BB_COMPUTE_CUDA_CUBLAS:
+		return "CUDA CUBLAS";
 	default:
 		assert(false);
 		return {};

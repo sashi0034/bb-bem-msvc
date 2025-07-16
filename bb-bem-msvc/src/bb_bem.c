@@ -19,6 +19,7 @@
 #include "bicgstab_naive.h"
 #include "bicgstab_cuda.h"
 #include "bicgstab_cuda_wmma.h"
+#include "bicgstab_cuda_cublas.h"
 
 static int s_default_para_batch = 8;
 
@@ -527,6 +528,8 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
         bicgstab_cuda(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
     } else if (compute == BB_COMPUTE_CUDA_WMMA) {
         bicgstab_cuda_wmma(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
+    } else if (compute == BB_COMPUTE_CUDA_CUBLAS) {
+        bicgstab_cuda_cublas(input->para_batch, result->dim, A, rhs, result->sol, TOR, MAX_STEPS);
     } else {
         printf("Error: Unknown compute type\n");
     }

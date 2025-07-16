@@ -13,7 +13,7 @@
 #include "TY/System.h"
 
 #include "TY/Math.h"
-#include "TY/Model.h"
+#include "TY/ModelDrawer.h"
 #include "TY/ModelLoader.h"
 #include "TY/RenderTarget.h"
 #include "TY/Scene.h"
@@ -74,9 +74,9 @@ struct StandaloneViewer_TY {
     PixelShader m_modelPS{};
     VertexShader m_modelVS{};
 
-    Model m_gridPlaneModel{};
+    ModelDrawer m_gridPlaneModel{};
 
-    Model m_targetModel{};
+    ModelDrawer m_targetModel{};
 
     bb_bem_wrapper::ResultHolder m_bb{};
 
@@ -94,8 +94,8 @@ struct StandaloneViewer_TY {
 
         const auto gridPlaneTexture = makeGridPlane(
             Size{1024, 1024}, 32, ColorF32{0.8}, ColorF32{0.9});
-        m_gridPlaneModel = Model{
-            ModelParams{}
+        m_gridPlaneModel = ModelDrawer{
+            ModelDrawerParams{}
             .setData(Shape3D::TexturePlane(gridPlaneTexture, Float2{100.0f, 100.0f}))
             .setShaders(defaultPS, defaultVS)
         };
@@ -331,8 +331,8 @@ struct StandaloneViewer_TY {
             }
         }
 
-        m_targetModel = Model{
-            ModelParams{}
+        m_targetModel = ModelDrawer{
+            ModelDrawerParams{}
             .setData(std::move(modelData))
             .setShaders(m_modelPS, m_modelVS)
         };
