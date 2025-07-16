@@ -15,6 +15,8 @@ void bicgstab_cuda_wmma(
     int max_steps
 );
 
+int tensorcore_layout_at(int row, int col, int num_cols);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

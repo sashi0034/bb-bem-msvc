@@ -113,6 +113,22 @@ static void** allocate_matrix(size_t rows, size_t cols, size_t elem_size) {
     return array;
 }
 
+static double** clone_matrix(size_t rows, size_t cols, double** mat) {
+    double** new_mat = allocate_matrix(rows, cols, sizeof(double));
+    if (!new_mat) {
+        printf("ERROR: Failed to allocate memory for matrix clone.\n");
+        return NULL;
+    }
+
+    for (size_t row = 0; row < rows; ++row) {
+        for (size_t col = 0; col < cols; ++col) {
+            new_mat[row][col] = mat[row][col];
+        }
+    }
+
+    return new_mat;
+}
+
 static void release_matrix(void** matrix) {
     if (matrix && matrix[0]) free(matrix[0]);
     if (matrix) free(matrix);
@@ -472,6 +488,27 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
     printf("Linear system was generated.\n");
     fflush(stdout);
 
+    if (compute == BB_COMPUTE_CUDA_WMMA) {
+        // Convert matrix A and rhs to tensorcore layout
+        double** A_cloned = clone_matrix(result->dim, result->dim, A);
+        for (int row = 0; row < result->dim; ++row) {
+            for (int col = 0; col < result->dim; ++col) {
+                A[0][tensorcore_layout_at(row, col, result->dim)] = A_cloned[row][col];
+            }
+        }
+
+        release_matrix(A_cloned);
+
+        double** rhs_cloned = clone_matrix(result->dim, input->para_batch, rhs);
+        for (int row = 0; row < result->dim; ++row) {
+            for (int col = 0; col < input->para_batch; ++col) {
+                rhs[0][tensorcore_layout_at(row, col, input->para_batch)] = rhs_cloned[row][col];
+            }
+        }
+
+        release_matrix(rhs_cloned);
+    }
+
     const measurement_t compute_start = start_measurement(); // <-- Start time measurement 
 
 #if 0
@@ -496,6 +533,18 @@ bb_status_t bb_bem(const char* filename, bb_compute_t /* in */ compute, bb_resul
 #endif
 
     result->compute_time = end_measurement(compute_start); // <-- End time measurement
+
+    if (compute == BB_COMPUTE_CUDA_WMMA) {
+        // Convert the solution back to the original layout
+        double** sol_cloned = clone_matrix(result->dim, input->para_batch, result->sol);
+        for (int row = 0; row < result->dim; ++row) {
+            for (int col = 0; col < input->para_batch; ++col) {
+                result->sol[row][col] = sol_cloned[0][tensorcore_layout_at(row, col, input->para_batch)];
+            }
+        }
+
+        release_matrix(sol_cloned);
+    }
 
     printf("Completed\n");
 
