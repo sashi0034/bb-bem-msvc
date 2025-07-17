@@ -49,6 +49,8 @@ int main(int argc, char* argv[]) {
                 compute_mode = BB_COMPUTE_CUDA;
             } else if (strcmp(argv[i], "cuda_wmma") == 0) {
                 compute_mode = BB_COMPUTE_CUDA_WMMA;
+            } else if (strcmp(argv[i], "cuda_cublas") == 0) {
+                compute_mode = BB_COMPUTE_CUDA_CUBLAS;
             } else {
                 printf("Unknown compute mode: %s\n", argv[i]);
                 return 1;
