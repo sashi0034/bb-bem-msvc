@@ -57,8 +57,9 @@ __host__ __device__ int tcl_at(int row, int col, int num_cols) {
 //     }
 // }
 
+constexpr int WMMA_WARPS = 2;
+
 // Kernel: Q[row, n] = sum_col A[row, col] * P[col, n]
-// All stored in row-major in global memory.
 __global__ void wmma_matvec(
     int batch, /* 8-aligned */
     int dim, /* 8-aligned */
@@ -66,6 +67,12 @@ __global__ void wmma_matvec(
     const double* __restrict__ P /* [dim * batch] */,
     double* __restrict__ Q /* out [dim * batch] */
 ) {
+    constexpr int c_tile_elems = WMMA_M * WMMA_N; // 8x8 tiles
+
+    __shared__ double smem[WMMA_WARPS * c_tile_elems]; // 2 warps, 8x8 tiles
+
+    const int warpId = threadIdx.x >> 5; // threadIdx.x / 32
+
     // index of this tile
     const int coarse_row = blockIdx.x;
     const int coarse_col = blockIdx.y;
@@ -77,7 +84,8 @@ __global__ void wmma_matvec(
     wmma::fill_fragment(c_frag, 0.0);
 
     const int num_k_tiles = dim / WMMA_K;
-    for (int k_tile = 0; k_tile < num_k_tiles; ++k_tile) {
+    const int num_k_tiles_per_warp = num_k_tiles / WMMA_WARPS; // 4 tiles per warp
+    for (int k_tile = warpId * num_k_tiles_per_warp; k_tile < (warpId + 1) * num_k_tiles_per_warp; ++k_tile) {
         wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, double, wmma::row_major> a_frag; // 8x4
         wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, double, wmma::row_major> b_frag; // 4x8
 
@@ -90,8 +98,24 @@ __global__ void wmma_matvec(
         wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
     }
 
-    double* c_tile_ptr = &Q[tcl_at(coarse_row * WMMA_M, coarse_col * WMMA_N, batch)];
-    wmma::store_matrix_sync(c_tile_ptr, c_frag, 8, wmma::mem_row_major);
+    wmma::store_matrix_sync(&smem[warpId * c_tile_elems], c_frag, 8, wmma::mem_row_major);
+
+    __syncthreads();
+
+    //  const int warpId = threadIdx.x >> 5; // threadIdx.x / 32
+    if (warpId == 0 && threadIdx.x == 0) {
+        // TODO: ここの高速化
+        double* c_tile_ptr = &Q[tcl_at(coarse_row * WMMA_M, coarse_col * WMMA_N, batch)];
+        for (int i = 0; i < c_tile_elems; ++i) {
+            c_tile_ptr[i] = smem[i];
+        }
+
+        for (int w = 1; w < WMMA_WARPS; ++w) {
+            for (int i = 0; i < c_tile_elems; ++i) {
+                c_tile_ptr[i] += smem[w * c_tile_elems + i];
+            }
+        }
+    }
 }
 
 static void launch_wmma_matvec(
@@ -102,7 +126,7 @@ static void launch_wmma_matvec(
     double* d_Q /* out [dim * batch] */
 ) {
     const dim3 grid(dim / WMMA_M, batch / WMMA_N);
-    const dim3 block(32, 1, 1); // one warp per tile
+    const dim3 block(32 * WMMA_WARPS, 1, 1); // one warp per tile
 
     wmma_matvec<<<grid, block>>>(batch, dim, d_A, d_P, d_Q);
 }
