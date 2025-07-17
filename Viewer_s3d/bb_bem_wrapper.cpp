@@ -28,6 +28,8 @@ bb_result_t& bb_bem_wrapper::ResultHolder::get(bb_compute_t compute) {
 		return bb_cuda;
 	case BB_COMPUTE_CUDA_WMMA:
 		return bb_cuda_wmma;
+	case BB_COMPUTE_CUDA_CUBLAS:
+		return bb_cuda_cublas;
 	default:
 		assert(false);
 		return bb_naive; // Should never reach here
@@ -79,7 +81,7 @@ std::string bb_bem_wrapper::GetNameU8(bb_compute_t compute) {
 	case BB_COMPUTE_CUDA_WMMA:
 		return "CUDA WMMA";
 	case BB_COMPUTE_CUDA_CUBLAS:
-		return "CUDA CUBLAS";
+		return "CUDA cuBLAS";
 	default:
 		assert(false);
 		return {};
