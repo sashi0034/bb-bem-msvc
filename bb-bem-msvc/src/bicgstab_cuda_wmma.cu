@@ -102,18 +102,22 @@ __global__ void wmma_matvec(
 
     __syncthreads();
 
-    //  const int warpId = threadIdx.x >> 5; // threadIdx.x / 32
-    if (warpId == 0 && threadIdx.x == 0) {
-        // TODO: ここの高速化
+    // Reduction
+    if (warpId == 0) {
+        static_assert(c_tile_elems == 64, "c_tile_elems must be 64 for this implementation");
+
+        const int laneId = threadIdx.x & 31;
+        const int i0 = laneId << 1; // laneId * 2
+        const int i1 = i0 + 1;
+
         double* c_tile_ptr = &Q[tcl_at(coarse_row * WMMA_M, coarse_col * WMMA_N, batch)];
-        for (int i = 0; i < c_tile_elems; ++i) {
-            c_tile_ptr[i] = smem[i];
-        }
+
+        c_tile_ptr[i0] = smem[i0];
+        c_tile_ptr[i1] = smem[i1];
 
         for (int w = 1; w < WMMA_WARPS; ++w) {
-            for (int i = 0; i < c_tile_elems; ++i) {
-                c_tile_ptr[i] += smem[w * c_tile_elems + i];
-            }
+            c_tile_ptr[i0] += smem[w * c_tile_elems + i0];
+            c_tile_ptr[i1] += smem[w * c_tile_elems + i1];
         }
     }
 }
