@@ -23,25 +23,54 @@ using namespace nvcuda;
 } while (0)
 
 // Kernel: Q[row, n] = sum_col A[row, col] * P[col, n]
-__global__ static void kernel_matvec(
+// __global__ static void kernel_matvec(
+//     int batch,
+//     int dim,
+//     const double* __restrict__ mat /* [dim * dim] */,
+//     const double* __restrict__ P /* [dim * batch] */,
+//     double* __restrict__ Q /* out [dim * batch] */
+// ) {
+//     const int row = blockIdx.x * blockDim.x + threadIdx.x;
+//     const int n = blockIdx.y * blockDim.y + threadIdx.y;
+//     if (row < dim && n < batch) {
+//         double sum = 0.0;
+//         const double* Arow = mat + row * dim;
+//         const double* Pcol = P + n;
+//         for (int col = 0; col < dim; ++col) {
+//             sum += Arow[col] * Pcol[col * batch];
+//         }
+//
+//         Q[row * batch + n] = sum;
+//     }
+// }
+
+static void cublas_matvec(
+    cublasHandle_t handle,
     int batch,
     int dim,
     const double* __restrict__ mat /* [dim * dim] */,
     const double* __restrict__ P /* [dim * batch] */,
     double* __restrict__ Q /* out [dim * batch] */
 ) {
-    const int row = blockIdx.x * blockDim.x + threadIdx.x;
-    const int n = blockIdx.y * blockDim.y + threadIdx.y;
-    if (row < dim && n < batch) {
-        double sum = 0.0;
-        const double* Arow = mat + row * dim;
-        const double* Pcol = P + n;
-        for (int col = 0; col < dim; ++col) {
-            sum += Arow[col] * Pcol[col * batch];
-        }
+    constexpr double alpha_gemm = 1.0;
+    constexpr double beta_gemm = 0.0;
 
-        Q[row * batch + n] = sum;
-    }
+    cublasDgemm(
+        handle, // handle 
+        CUBLAS_OP_N, // transa 
+        CUBLAS_OP_N, // transb
+        batch, // m: C cols
+        dim, // n: C rows
+        dim, // k: A cols
+        &alpha_gemm, // alpha 
+        P, // A
+        batch, // lda 
+        mat, // B 
+        dim, // ldb 
+        &beta_gemm, // beta 
+        Q, // C
+        batch // ldc
+    );
 }
 
 // Kernel: R = B - A * X
@@ -280,14 +309,14 @@ extern "C" void bicgstab_cuda_cublas(
     // BiCGSTAB iteration 
     for (int step = 1; step <= max_steps; ++step) {
         // matvec(dim, A, p, Ap);
-        kernel_matvec<<<grid2d, block2d>>>(batch, dim, d_A, d_p, d_Ap);
+        cublas_matvec(handle, batch, dim, d_A, d_p, d_Ap);
 
         // p[i] = r[i] + beta * (p[i] - zeta * Ap[i]);
         kernel_update_p<<<grid2d, block2d>>>(batch, dim, d_p, d_r, d_p, d_Ap, d_beta, d_zeta);
         cudaMemcpy(d_kp, d_p, dim_batch_bytes, cudaMemcpyDeviceToDevice);
 
         // matvec(dim, A, kp, Akp);
-        kernel_matvec<<<grid2d, block2d>>>(batch, dim, d_A, d_kp, d_Akp);
+        cublas_matvec(handle, batch, dim, d_A, d_kp, d_Akp);
 
         // nom = dot_product(dim, r0, r);
         kernel_dot_product<<<blocks1d, threads1d>>>(batch, dim, d_r0, d_r, d_nom);
@@ -308,7 +337,7 @@ extern "C" void bicgstab_cuda_cublas(
         cudaMemcpy(d_kt, d_t, dim_batch_bytes, cudaMemcpyDeviceToDevice);
 
         //  matvec(dim, A, kt, Akt);
-        kernel_matvec<<<grid2d,block2d>>>(batch, dim, d_A, d_kt, d_Akt);
+        cublas_matvec(handle, batch, dim, d_A, d_kt, d_Akt);
 
         // nom = dot_product(dim, Akt, t);
         kernel_dot_product<<<blocks1d, threads1d>>>(batch, dim, d_Akt, d_t, d_nom);

@@ -47,10 +47,10 @@ void bb_bem_wrapper::ResultHolder::varifyResult() {
 
 	std::cout << std::format("Relative error between Naive and Cuda: {}\n",
 	                         compute_relative_error(bb_naive, bb_cuda));
-	std::cout << std::format("Relative error between Naive and Cuda-WMMA: {}\n",
-	                         compute_relative_error(bb_naive, bb_cuda_wmma));
 	std::cout << std::format("Relative error between Cuda and Cuda-WMMA: {}\n",
 	                         compute_relative_error(bb_cuda, bb_cuda_wmma));
+	std::cout << std::format("Relative error between Cuda and Cuda-cuBLAS: {}\n",
+	                         compute_relative_error(bb_cuda, bb_cuda_cublas));
 
 	std::cout << std::format("Compute time (Naive): {} sec\n", bb_naive.compute_time);
 	std::cout << std::format("Compute time (Cuda): {} sec\n", bb_cuda.compute_time);
