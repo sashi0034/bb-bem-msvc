@@ -123,6 +123,7 @@ typedef enum {
     BB_COMPUTE_NAIVE,
     BB_COMPUTE_CUDA,
     BB_COMPUTE_CUDA_WMMA,
+    BB_COMPUTE_CUDA_CUBLAS,
 } bb_compute_t;
 
 /// @brief BEM の計算を実行する関数

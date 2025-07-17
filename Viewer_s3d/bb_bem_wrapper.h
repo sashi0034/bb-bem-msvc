@@ -8,6 +8,7 @@ namespace bb_bem_wrapper
 		bb_result_t bb_naive{};
 		bb_result_t bb_cuda{};
 		bb_result_t bb_cuda_wmma{};
+		bb_result_t bb_cuda_cublas{};
 
 		bb_result_t& get(bb_compute_t compute);
 

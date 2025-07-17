@@ -143,6 +143,7 @@ private:
 
 		if (bb_bem(filename.data(), BB_COMPUTE_CUDA, &m_bb.bb_cuda) != BB_OK) return false;
 		if (bb_bem(filename.data(), BB_COMPUTE_CUDA_WMMA, &m_bb.bb_cuda_wmma) != BB_OK) return false;
+		if (bb_bem(filename.data(), BB_COMPUTE_CUDA_CUBLAS, &m_bb.bb_cuda_cublas) != BB_OK) return false;
 		return true;
 	}
 
