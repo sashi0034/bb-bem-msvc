@@ -74,13 +74,20 @@ struct StandaloneViewer : IAddon {
 		// 3D シーンにカメラを設定
 		Graphics3D::SetCameraTransform(m_camera);
 
+		static bool s_showUI{true};
+		if (KeyTab.down()) {
+			s_showUI = not s_showUI;
+		}
+
 		// 3D 描画
 		{
 			// renderTexture を背景色で塗りつぶし、
 			// renderTexture を 3D 描画のレンダーターゲットに
 			const ScopedRenderTarget3D target{m_renderTexture.clear(m_backgroundColor)};
 
-			Plane{Vec3{}.withY(-10.0), 64}.draw(m_planeTexture);
+			if (s_showUI) {
+				Plane{Vec3{}.withY(-10.0), 64}.draw(m_planeTexture);
+			}
 
 			// for (const auto& sphereData : m_sphereList) {
 			// 	Sphere{sphereData.center, sphereData.radius}.draw(sphereData.color);
@@ -104,18 +111,22 @@ struct StandaloneViewer : IAddon {
 			Shader::LinearToScreen(m_renderTexture);
 		}
 
-		if (SimpleGUI::Button(U"{}"_fmt(bb_bem_wrapper::GetName(m_currentCompute)), Vec2{20, 20})) {
-			m_currentCompute = bb_bem_wrapper::NextIndex(m_currentCompute);
-			rebuildTriangleList();
-		}
+		if (s_showUI) {
+			if (SimpleGUI::Button(U"{}"_fmt(bb_bem_wrapper::GetName(m_currentCompute)), Vec2{20, 20})) {
+				m_currentCompute = bb_bem_wrapper::NextIndex(m_currentCompute);
+				rebuildTriangleList();
+			}
 
-		if (SimpleGUI::Button(U"Batch {}"_fmt(m_currentBatch), Vec2{20, 60})) {
-			m_currentBatch = (m_currentBatch + 1) % Max(1, m_bb.para_batch_unaligned());
-			rebuildTriangleList();
-		}
+			if (SimpleGUI::Button(U"Batch {}"_fmt(m_currentBatch), Vec2{20, 60})) {
+				m_currentBatch = (m_currentBatch + 1) % Max(1, m_bb.para_batch_unaligned());
+				rebuildTriangleList();
+			}
 
-		if (SimpleGUI::Button(U"Re-compute", Scene::Size().withY(20).movedBy(-200, 0))) {
-			calculate_bem();
+			SimpleGUI::Headline(U"[Tab] Hide UI", Scene::Size().withY(20).movedBy(-200, 0));
+
+			if (SimpleGUI::Button(U"Re-compute", Scene::Size().withY(60).movedBy(-200, 0))) {
+				calculate_bem();
+			}
 		}
 
 		return true;
